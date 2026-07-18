@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inventario - Control Total</title>
+    <link rel="stylesheet" href="estilo.css">
+</head>
+<body>
+
+    <div class="contenedor-app">
+        <aside class="sidebar">
+            <h2>Inventario Cocina</h2>
+            <nav>
+                <button class="btn-nav activo" data-modulo="productos"> Catálogo Insumos</button>
+                <button class="btn-nav" data-modulo="proveedores">Proveedores y Pedidos</button>
+                <button class="btn-nav" data-modulo="bodega">Entradas y Salidas</button>
+            </nav>
+        </aside>
+
+        <main class="contenido-principal">
+            
+            <!-- PANEL: CATÁLOGO DE PRODUCTOS -->
+            <section id="modulo-productos" class="modulo activo">
+                <h2>Catálogo de Productos e Insumos</h2>
+                <div id="contenedor-alertas" style="margin-bottom: 20px;"></div>
+                
+                <div class="tarjeta">
+                    <h3 id="titulo-formulario">🛒 Agregar Nuevo Insumo</h3>
+                    <form id="form-insumo" class="formulario-horizontal" style="flex-wrap: wrap;">
+                        <input type="hidden" id="insumo-id" value="">
+                        <div style="display: flex; gap: 15px; width: 100%; margin-bottom: 15px;">
+                            <input type="text" id="insumo-nombre" placeholder="Nombre (Ej. Tomate)" required style="flex: 2;">
+                            <input type="text" id="insumo-unidad" class="input-corto" placeholder="Unidad (Ej. Libras)" required>
+                        </div>
+                        <div style="display: flex; gap: 15px; width: 100%; align-items: center;">
+                            <div style="flex: 1;">
+                                <label style="font-size: 0.8em; color: #666;">Stock Mínimo (Alerta):</label>
+                                <input type="number" id="insumo-minimo" placeholder="Mínimo" required>
+                            </div>
+                            <div style="flex: 1;">
+                                <label style="font-size: 0.8em; color: #666;">Stock Actual Inicial:</label>
+                                <input type="number" id="insumo-inicial" placeholder="Cantidad actual" value="0" required>
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 10px; width: 100%; margin-top: 20px;">
+                            <button type="submit" id="btn-guardar" class="btn btn-primario" style="flex: 1;">Guardar Insumo</button>
+                            <button type="button" id="btn-cancelar" class="btn btn-peligro oculto" onclick="cancelarEdicion()">Cancelar</button>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="tarjeta">
+                    <h3>📋 Lista de Insumos Registrados</h3>
+                    <table style="width: 100%; text-align: left; border-collapse: collapse; margin-top: 15px;">
+                        <thead>
+                            <tr style="border-bottom: 2px solid var(--borde); background-color: #f9fafb;">
+                                <th style="padding: 10px;">ID</th>
+                                <th style="padding: 10px;">Nombre</th>
+                                <th style="padding: 10px;">Unidad</th>
+                                <th style="padding: 10px;">Mínimo</th>
+                                <th style="padding: 10px;">Stock Actual</th>
+                                <th style="padding: 10px; text-align: center;">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabla-insumos-body"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- PANEL: PROVEEDORES Y PEDIDOS -->
+            <section id="modulo-proveedores" class="modulo">
+                <h2>Gestión de Proveedores y Pedidos</h2>
+
+                <div style="display: flex; gap: 20px;">
+                    <div class="tarjeta" style="flex: 1;">
+                        <h3>🤝 Agregar Nuevo Proveedor</h3>
+                        <form id="form-proveedor" class="formulario-horizontal" style="flex-wrap: wrap;">
+                            <input type="text" id="prov-nombre" placeholder="Nombre Empresa" required style="width: 100%; margin-bottom: 10px;">
+                            <input type="text" id="prov-telefono" placeholder="Teléfono" required style="width: 100%; margin-bottom: 10px;">
+                            <button type="submit" class="btn btn-primario" style="width: 100%;">Guardar Proveedor</button>
+                        </form>
+                    </div>
+
+                    <div class="tarjeta" style="flex: 1; border-top: 4px solid var(--azul);">
+                        <h3>🔗 Asignar Productos al Proveedor</h3>
+                        <form id="form-asignacion" style="display: flex; flex-direction: column; gap: 10px;">
+                            <select id="select-prov-asignar" required><option value="">Seleccionar Proveedor...</option></select>
+                            <select id="select-insumo-asignar" required><option value="">Seleccionar Producto...</option></select>
+                            <button type="submit" class="btn btn-exito">Vincular Producto</button>
+                        </form>
+                    </div>
+                </div>
+                
+                <!-- NUEVO: ARMAR PEDIDO -->
+                <div class="tarjeta" style="border-top: 4px solid var(--naranja);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <h3>📝 Armar Pedido a Proveedor</h3>
+                        <button class="btn btn-editar" onclick="imprimirReporteAutomatico()">🖨️ Imprimir Faltantes Automático</button>
+                    </div>
+                    <p style="font-size: 0.9em; color: gray; margin-bottom: 15px;">Selecciona el proveedor, ingresa las cantidades que deseas pedir y genera la orden de compra.</p>
+                    
+                    <select id="select-prov-pedido" style="margin-bottom: 15px;">
+                        <option value="">Seleccione a quién le va a pedir...</option>
+                    </select>
+                    
+                    <div id="lista-pedido-dinamica" style="margin-bottom: 20px;">
+                        <!-- Se llena con JS con botones +/- -->
+                    </div>
+                    <button id="btn-imprimir-pedido" class="btn btn-primario" style="width: 100%; display: none;" onclick="imprimirPedidoManual()">🖨️ Imprimir Esta Orden de Compra</button>
+                </div>
+            </section>
+
+            <!-- PANEL: BODEGA (ENTRADAS Y SALIDAS) -->
+            <section id="modulo-bodega" class="modulo">
+                <h2>Operaciones de Bodega Automáticas</h2>
+                <div style="display: flex; gap: 20px;">
+                    
+                    <!-- ENTRADAS -->
+                    <div class="tarjeta" style="flex: 1; border-top: 4px solid var(--verde);">
+                        <h3>📥 Recepción (Ingreso de Proveedor)</h3>
+                        <select id="select-prov-entrada" style="margin-bottom: 15px;">
+                            <option value="">Seleccione el proveedor que llegó...</option>
+                        </select>
+                        <div id="lista-entrada-dinamica">
+                            <!-- Los productos con +/- aparecerán aquí -->
+                        </div>
+                    </div>
+
+                    <!-- SALIDAS -->
+                    <div class="tarjeta" style="flex: 1; border-top: 4px solid var(--rojo-texto);">
+                        <h3>📤 Despacho / Merma (Salida)</h3>
+                        <select id="select-prov-salida" style="margin-bottom: 15px;">
+                            <option value="todos">Mostrar TODOS los productos</option>
+                            <!-- Proveedores se inyectan aquí para filtrar si lo desea -->
+                        </select>
+                        <div id="lista-salida-dinamica">
+                            <!-- Los productos con +/- aparecerán aquí -->
+                        </div>
+                    </div>
+
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="app.js"></script>
+</body>
+</html>

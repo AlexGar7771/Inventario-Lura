@@ -1,0 +1,44 @@
+:root {
+    --fondo-sidebar: #111827; --texto-sidebar: #ffffff; --fondo-app: #f3f4f6;
+    --texto-principal: #1f2937; --blanco: #ffffff; --borde: #e5e7eb;
+    --azul: #2563eb; --verde: #16a34a; --rojo-fondo: #fee2e2;
+    --rojo-texto: #b91c1c; --amarillo-fondo: #fef3c7; --amarillo-texto: #b45309;
+    --naranja: #f59e0b;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; font-family: Arial, sans-serif; }
+body { background-color: var(--fondo-app); color: var(--texto-principal); }
+.contenedor-app { display: flex; height: 100vh; }
+.sidebar { width: 250px; background-color: var(--fondo-sidebar); color: var(--texto-sidebar); padding: 20px; }
+.sidebar h2 { margin-bottom: 30px; font-size: 1.5rem; }
+.btn-nav { display: block; width: 100%; text-align: left; padding: 10px 15px; margin-bottom: 10px; background: none; border: none; color: var(--texto-sidebar); cursor: pointer; border-radius: 5px; font-size: 1rem; transition: background 0.3s; }
+.btn-nav:hover, .btn-nav.activo { background-color: #374151; }
+.contenido-principal { flex: 1; padding: 40px; overflow-y: auto; }
+.modulo { display: none; }
+.modulo.activo { display: block; }
+h2 { font-size: 2rem; margin-bottom: 20px; }
+
+/* Alertas y Tarjetas */
+.alerta { padding: 15px; margin-bottom: 15px; border-left: 5px solid; border-radius: 4px; }
+.alerta-peligro { background-color: var(--rojo-fondo); color: var(--rojo-texto); border-color: var(--rojo-texto); }
+.tarjeta { background-color: var(--blanco); padding: 25px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; }
+.formulario-horizontal { display: flex; gap: 15px; margin-bottom: 20px; }
+input, select { padding: 10px; border: 1px solid var(--borde); border-radius: 4px; width: 100%; }
+.input-corto { width: 150px; }
+
+/* Botones */
+.btn { padding: 10px 20px; border: none; border-radius: 4px; color: var(--blanco); cursor: pointer; font-weight: bold; transition: opacity 0.2s; }
+.btn:hover { opacity: 0.9; }
+.btn-primario { background-color: var(--azul); }
+.btn-exito { background-color: var(--verde); }
+.btn-editar { background-color: var(--naranja); color: white; }
+.btn-peligro { background-color: #ef4444; color: white; border: 1px solid #b91c1c; }
+.oculto { display: none !important; }
+
+/* NUEVO: Estilos para filas de Bodega y Pedidos */
+.item-lista { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--borde); }
+.item-lista:last-child { border-bottom: none; }
+.control-cantidad { display: flex; align-items: center; gap: 5px; }
+.btn-circulo { width: 35px; height: 35px; border-radius: 4px; border: none; background: #e5e7eb; font-size: 1.2rem; cursor: pointer; font-weight: bold; color: #374151;}
+.btn-circulo:hover { background: #d1d5db; }
+.input-cant { width: 70px; text-align: center; padding: 8px; border: 1px solid var(--borde); border-radius: 4px; font-weight: bold; font-size: 1.1rem;}
