@@ -6,7 +6,6 @@ let insumosGlobal = [];
 let proveedoresGlobal = [];
 let asignacionesGlobal = [];
 
-// --- 1. CARGA MAESTRA ---
 async function cargarDatosMaestros() {
     try {
         const resInsumos = await db.from('insumos').select('*').order('id', { ascending: true });
@@ -19,7 +18,8 @@ async function cargarDatosMaestros() {
 
         renderizarInsumos();
         renderizarProveedores();
-        // Recargar las vistas de bodega si hay un proveedor seleccionado
+        renderizarCatalogoProveedores();
+        
         document.getElementById('select-prov-entrada').dispatchEvent(new Event('change'));
         document.getElementById('select-prov-salida').dispatchEvent(new Event('change'));
         document.getElementById('select-prov-pedido').dispatchEvent(new Event('change'));
@@ -28,7 +28,6 @@ async function cargarDatosMaestros() {
     }
 }
 
-// --- 2. RENDERIZAR INSUMOS ---
 function renderizarInsumos() {
     const tbody = document.getElementById('tabla-insumos-body');
     const selectInsumoAsignar = document.getElementById('select-insumo-asignar');
@@ -70,7 +69,6 @@ function renderizarInsumos() {
     });
 }
 
-// --- 3. RENDERIZAR PROVEEDORES ---
 function renderizarProveedores() {
     const selects = ['select-prov-asignar', 'select-prov-entrada', 'select-prov-pedido'];
     
@@ -90,7 +88,49 @@ function renderizarProveedores() {
     });
 }
 
-// --- 4. GENERADOR DE LISTAS (BODEGA Y PEDIDOS) CON BOTONES +/- ---
+function renderizarCatalogoProveedores() {
+    const contenedor = document.getElementById('contenedor-catalogo-proveedores');
+    contenedor.innerHTML = '';
+
+    proveedoresGlobal.forEach(prov => {
+        const susAsignaciones = asignacionesGlobal.filter(a => a.id_proveedor == prov.id);
+        let htmlProductos = '';
+        
+        if (susAsignaciones.length === 0) {
+            htmlProductos = '<p style="color: gray; font-size: 0.9em; margin-top: 5px;">No tiene productos asignados aún.</p>';
+        } else {
+            htmlProductos = '<ul style="list-style:none; padding:0; margin-top: 10px;">';
+            susAsignaciones.forEach(asig => {
+                const insumoReal = insumosGlobal.find(i => i.id == asig.id_insumo);
+                if(insumoReal) {
+                    htmlProductos += `
+                        <li style="display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px dashed #ccc;">
+                            <span>📦 ${insumoReal.nombre}</span>
+                            <button class="btn btn-peligro btn-quitar-asignacion" data-id="${asig.id}" style="padding: 2px 8px; font-size: 0.8em;">Quitar</button>
+                        </li>`;
+                }
+            });
+            htmlProductos += '</ul>';
+        }
+
+        contenedor.innerHTML += `
+            <div style="border: 1px solid var(--borde); padding: 15px; border-radius: 5px; margin-bottom: 15px; background: #f9fafb;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
+                    <div>
+                        <h4 style="margin: 0; color: var(--azul); font-size: 1.2rem;">${prov.nombre}</h4>
+                        <span style="display: inline-block; margin-top: 5px; background: #e5e7eb; padding: 3px 8px; border-radius: 4px; font-weight: bold; color: #374151;">📞 Tel: ${prov.telefono}</span>
+                    </div>
+                    <div>
+                        <button class="btn btn-editar-prov" data-id="${prov.id}" data-nombre="${prov.nombre}" data-telefono="${prov.telefono}" style="background-color: var(--naranja); color: white; padding: 5px 10px; margin-right: 5px;">✏️ Editar</button>
+                        <button class="btn btn-eliminar-prov" data-id="${prov.id}" style="background-color: #ef4444; color: white; padding: 5px 10px; border: none;">🗑️</button>
+                    </div>
+                </div>
+                ${htmlProductos}
+            </div>
+        `;
+    });
+}
+
 function generarListaInteractiva(idProv, contenedorId, tipo) {
     const contenedor = document.getElementById(contenedorId);
     contenedor.innerHTML = '';
@@ -118,7 +158,6 @@ function generarListaInteractiva(idProv, contenedorId, tipo) {
             btnAccion = `<button class="btn btn-peligro btn-procesar" data-id="${prod.id}" data-tipo="salida" data-stock="${prod.cantidad_actual}" data-unidad="${prod.unidad_medida}" style="padding: 8px;">📤 Descontar</button>`;
         }
 
-        // Si es "pedido", no lleva botón individual, se imprime todo junto
         contenedor.innerHTML += `
             <div class="item-lista">
                 <div style="flex: 1;">
@@ -136,11 +175,9 @@ function generarListaInteractiva(idProv, contenedorId, tipo) {
     });
 }
 
-// --- 5. EVENTOS PRINCIPALES ---
 document.addEventListener('DOMContentLoaded', () => {
     cargarDatosMaestros();
 
-    // Navegación
     document.querySelectorAll('.btn-nav').forEach(boton => {
         boton.addEventListener('click', () => {
             document.querySelectorAll('.btn-nav, .modulo').forEach(el => el.classList.remove('activo'));
@@ -149,7 +186,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // ¡AQUÍ ESTÁ LA REPARACIÓN DEL GUARDADO DE INSUMO!
     document.getElementById('form-insumo').addEventListener('submit', async (e) => {
         e.preventDefault();
         const idEdicion = document.getElementById('insumo-id').value;
@@ -170,32 +206,48 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (error) { alert("Error al guardar producto."); }
     });
 
-    // Guardar Proveedor
     document.getElementById('form-proveedor').addEventListener('submit', async (e) => {
         e.preventDefault();
+        const idProv = document.getElementById('prov-id').value;
+        const nombre = document.getElementById('prov-nombre').value;
+        const telefono = document.getElementById('prov-telefono').value;
+        
         try {
-            await db.from('proveedores').insert([{ 
-                nombre: document.getElementById('prov-nombre').value, 
-                telefono: document.getElementById('prov-telefono').value 
-            }]);
-            document.getElementById('form-proveedor').reset();
+            if(idProv === "") {
+                await db.from('proveedores').insert([{ nombre, telefono }]);
+                alert("Proveedor guardado exitosamente.");
+            } else {
+                await db.from('proveedores').update({ nombre, telefono }).eq('id', idProv);
+                alert("Proveedor actualizado exitosamente.");
+            }
+            cancelarEdicionProv();
             cargarDatosMaestros();
         } catch (error) { alert("Error al guardar proveedor."); }
     });
 
-    // Vincular Producto a Proveedor
+    // --- CORRECCIÓN CLAVE AQUÍ: Atrapar errores al asignar productos ---
     document.getElementById('form-asignacion').addEventListener('submit', async (e) => {
         e.preventDefault();
         const idProv = document.getElementById('select-prov-asignar').value;
         const idIns = document.getElementById('select-insumo-asignar').value;
+        
         try {
-            await db.from('proveedor_insumo').insert([{ id_proveedor: idProv, id_insumo: idIns }]);
+            const { error } = await db.from('proveedor_insumo').insert([{ id_proveedor: idProv, id_insumo: idIns }]);
+            
+            if (error) {
+                console.error("Error devuelto por Supabase:", error);
+                throw error;
+            }
+
             document.getElementById('form-asignacion').reset();
             cargarDatosMaestros();
-        } catch (error) { alert("Error al vincular. (Quizás ya estaba asignado)"); }
+            alert("✅ Producto asignado correctamente al proveedor.");
+        } catch (error) { 
+            console.error("Error al asignar:", error);
+            alert("Error al vincular el producto. \n\nPosibles causas:\n1. El producto ya está asignado a este proveedor.\n2. Falta ejecutar el código SQL para crear la tabla 'proveedor_insumo' en Supabase."); 
+        }
     });
 
-    // Eventos Select de Bodega y Pedidos
     document.getElementById('select-prov-entrada').addEventListener('change', (e) => generarListaInteractiva(e.target.value, 'lista-entrada-dinamica', 'entrada'));
     document.getElementById('select-prov-salida').addEventListener('change', (e) => generarListaInteractiva(e.target.value, 'lista-salida-dinamica', 'salida'));
     document.getElementById('select-prov-pedido').addEventListener('change', (e) => {
@@ -203,11 +255,9 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('btn-imprimir-pedido').style.display = e.target.value ? 'block' : 'none';
     });
 
-    // DELEGACIÓN DE EVENTOS: Botones + / - y Procesar
     document.body.addEventListener('click', async (e) => {
         const boton = e.target;
         
-        // Botones de suma y resta
         if (boton.classList.contains('btn-sumar')) {
             const input = boton.previousElementSibling;
             input.value = parseInt(input.value) + 1;
@@ -217,7 +267,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (parseInt(input.value) > 0) input.value = parseInt(input.value) - 1;
         }
 
-        // Botón Registrar Entrada / Descontar Salida
         if (boton.classList.contains('btn-procesar')) {
             const id = boton.getAttribute('data-id');
             const tipo = boton.getAttribute('data-tipo');
@@ -230,9 +279,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 const nuevoStock = tipo === 'entrada' ? stockActual + cantidadModificar : stockActual - cantidadModificar;
                 try {
                     await db.from('insumos').update({ cantidad_actual: nuevoStock }).eq('id', id);
-                    inputElement.value = 0; // Reiniciar el input
-                    cargarDatosMaestros(); // Recargar alertas y vista
-                    
+                    inputElement.value = 0; 
+                    cargarDatosMaestros(); 
                     const accionText = tipo === 'entrada' ? 'Ingresaron' : 'Se descontaron';
                     alert(`✅ ¡Hecho! ${accionText} ${cantidadModificar} ${unidad}.`);
                 } catch (error) { alert("Error al procesar en la base de datos."); }
@@ -241,7 +289,12 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // Editar Insumo
+        if (boton.classList.contains('btn-quitar-asignacion')) {
+            const idAsignacion = boton.getAttribute('data-id');
+            await db.from('proveedor_insumo').delete().eq('id', idAsignacion);
+            cargarDatosMaestros();
+        }
+
         if (boton.classList.contains('btn-editar')) {
             document.getElementById('insumo-id').value = boton.getAttribute('data-id');
             document.getElementById('insumo-nombre').value = boton.getAttribute('data-nombre');
@@ -256,10 +309,28 @@ document.addEventListener('DOMContentLoaded', () => {
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
-        // Eliminar Insumo
         if (boton.classList.contains('btn-eliminar')) {
-            if (window.confirm("¿Eliminar este producto?")) {
+            if (window.confirm("¿Eliminar este producto permanentemente?")) {
                 await db.from('insumos').delete().eq('id', boton.getAttribute('data-id'));
+                cargarDatosMaestros();
+            }
+        }
+
+        if (boton.classList.contains('btn-editar-prov')) {
+            document.getElementById('prov-id').value = boton.getAttribute('data-id');
+            document.getElementById('prov-nombre').value = boton.getAttribute('data-nombre');
+            document.getElementById('prov-telefono').value = boton.getAttribute('data-telefono');
+            
+            document.getElementById('titulo-form-proveedor').innerText = "✏️ Editando Proveedor";
+            document.getElementById('btn-guardar-prov').innerText = "Actualizar Cambios";
+            document.getElementById('btn-guardar-prov').classList.replace('btn-primario', 'btn-editar');
+            document.getElementById('btn-cancelar-prov').classList.remove('oculto');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        if (boton.classList.contains('btn-eliminar-prov')) {
+            if (window.confirm("¿Estás seguro de eliminar este proveedor? Sus productos asociados se desvincularán automáticamente.")) {
+                await db.from('proveedores').delete().eq('id', boton.getAttribute('data-id'));
                 cargarDatosMaestros();
             }
         }
@@ -275,9 +346,16 @@ window.cancelarEdicion = function() {
     document.getElementById('btn-cancelar').classList.add('oculto');
 }
 
-// --- 6. IMPRIMIR PEDIDO MANUAL CREADO CON +/- ---
+window.cancelarEdicionProv = function() {
+    document.getElementById('form-proveedor').reset();
+    document.getElementById('prov-id').value = "";
+    document.getElementById('titulo-form-proveedor').innerText = "🤝 Agregar Nuevo Proveedor";
+    document.getElementById('btn-guardar-prov').innerText = "Guardar Proveedor";
+    document.getElementById('btn-guardar-prov').classList.replace('btn-editar', 'btn-primario');
+    document.getElementById('btn-cancelar-prov').classList.add('oculto');
+}
+
 window.imprimirPedidoManual = function() {
-    const idProv = document.getElementById('select-prov-pedido').value;
     const provNombre = document.getElementById('select-prov-pedido').options[document.getElementById('select-prov-pedido').selectedIndex].text;
     const inputs = document.querySelectorAll('#lista-pedido-dinamica .input-cant');
     
@@ -288,7 +366,6 @@ window.imprimirPedidoManual = function() {
         const cantidad = parseInt(input.value);
         if(cantidad > 0) {
             hayItems = true;
-            // Obtenemos el ID desde el id del input (ej: input-pedido-14)
             const idProducto = input.id.split('-')[2]; 
             const prodInfo = insumosGlobal.find(i => i.id == idProducto);
             
@@ -317,7 +394,6 @@ window.imprimirPedidoManual = function() {
     `);
 }
 
-// --- 7. IMPRIMIR FALTANTES AUTOMÁTICOS ---
 window.imprimirReporteAutomatico = function() {
     let contenido = `<h1>Reporte Automático de Faltantes</h1>
                      <p>Generado el: ${new Date().toLocaleDateString()}</p><hr>`;
@@ -336,7 +412,7 @@ window.imprimirReporteAutomatico = function() {
 
         if (productosNecesitados.length > 0) {
             hayCompras = true;
-            contenido += `<h3>📦 Proveedor: ${prov.nombre}</h3>
+            contenido += `<h3>📦 Proveedor: ${prov.nombre} <br><small>📞 Tel: ${prov.telefono}</small></h3>
                 <table style="width:100%; border-collapse:collapse; text-align:left;" border="1" cellpadding="8">
                     <tr style="background-color:#f4f4f4;"><th>Producto</th><th>Bodega</th><th>Mínimo</th></tr>`;
             productosNecesitados.forEach(prod => {

@@ -12,9 +12,9 @@
         <aside class="sidebar">
             <h2>Inventario Cocina</h2>
             <nav>
-                <button class="btn-nav activo" data-modulo="productos"> Catálogo Insumos</button>
-                <button class="btn-nav" data-modulo="proveedores">Proveedores y Pedidos</button>
-                <button class="btn-nav" data-modulo="bodega">Entradas y Salidas</button>
+                <button class="btn-nav activo" data-modulo="productos">🛒 Catálogo Insumos</button>
+                <button class="btn-nav" data-modulo="proveedores">🤝 Proveedores y Pedidos</button>
+                <button class="btn-nav" data-modulo="bodega">📦 Entradas y Salidas</button>
             </nav>
         </aside>
 
@@ -73,12 +73,17 @@
                 <h2>Gestión de Proveedores y Pedidos</h2>
 
                 <div style="display: flex; gap: 20px;">
+                    <!-- MODIFICADO: Formulario Proveedor con Edición -->
                     <div class="tarjeta" style="flex: 1;">
-                        <h3>🤝 Agregar Nuevo Proveedor</h3>
+                        <h3 id="titulo-form-proveedor">🤝 Agregar Nuevo Proveedor</h3>
                         <form id="form-proveedor" class="formulario-horizontal" style="flex-wrap: wrap;">
+                            <input type="hidden" id="prov-id" value="">
                             <input type="text" id="prov-nombre" placeholder="Nombre Empresa" required style="width: 100%; margin-bottom: 10px;">
                             <input type="text" id="prov-telefono" placeholder="Teléfono" required style="width: 100%; margin-bottom: 10px;">
-                            <button type="submit" class="btn btn-primario" style="width: 100%;">Guardar Proveedor</button>
+                            <div style="display: flex; gap: 10px; width: 100%;">
+                                <button type="submit" id="btn-guardar-prov" class="btn btn-primario" style="flex: 1;">Guardar Proveedor</button>
+                                <button type="button" id="btn-cancelar-prov" class="btn btn-peligro oculto" onclick="cancelarEdicionProv()">Cancelar</button>
+                            </div>
                         </form>
                     </div>
 
@@ -92,7 +97,14 @@
                     </div>
                 </div>
                 
-                <!-- NUEVO: ARMAR PEDIDO -->
+                <div class="tarjeta">
+                    <h3>🏢 Catálogo por Proveedor</h3>
+                    <div id="contenedor-catalogo-proveedores">
+                        <!-- JS inyectará los proveedores aquí -->
+                    </div>
+                </div>
+
+                <!-- ARMAR PEDIDO -->
                 <div class="tarjeta" style="border-top: 4px solid var(--naranja);">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                         <h3>📝 Armar Pedido a Proveedor</h3>
@@ -104,9 +116,7 @@
                         <option value="">Seleccione a quién le va a pedir...</option>
                     </select>
                     
-                    <div id="lista-pedido-dinamica" style="margin-bottom: 20px;">
-                        <!-- Se llena con JS con botones +/- -->
-                    </div>
+                    <div id="lista-pedido-dinamica" style="margin-bottom: 20px;"></div>
                     <button id="btn-imprimir-pedido" class="btn btn-primario" style="width: 100%; display: none;" onclick="imprimirPedidoManual()">🖨️ Imprimir Esta Orden de Compra</button>
                 </div>
             </section>
@@ -116,27 +126,20 @@
                 <h2>Operaciones de Bodega Automáticas</h2>
                 <div style="display: flex; gap: 20px;">
                     
-                    <!-- ENTRADAS -->
                     <div class="tarjeta" style="flex: 1; border-top: 4px solid var(--verde);">
                         <h3>📥 Recepción (Ingreso de Proveedor)</h3>
                         <select id="select-prov-entrada" style="margin-bottom: 15px;">
                             <option value="">Seleccione el proveedor que llegó...</option>
                         </select>
-                        <div id="lista-entrada-dinamica">
-                            <!-- Los productos con +/- aparecerán aquí -->
-                        </div>
+                        <div id="lista-entrada-dinamica"></div>
                     </div>
 
-                    <!-- SALIDAS -->
                     <div class="tarjeta" style="flex: 1; border-top: 4px solid var(--rojo-texto);">
                         <h3>📤 Despacho / Merma (Salida)</h3>
                         <select id="select-prov-salida" style="margin-bottom: 15px;">
                             <option value="todos">Mostrar TODOS los productos</option>
-                            <!-- Proveedores se inyectan aquí para filtrar si lo desea -->
                         </select>
-                        <div id="lista-salida-dinamica">
-                            <!-- Los productos con +/- aparecerán aquí -->
-                        </div>
+                        <div id="lista-salida-dinamica"></div>
                     </div>
 
                 </div>
