@@ -16,6 +16,12 @@ async function cargarDatosMaestros() {
         proveedoresGlobal = resProv.data || [];
         asignacionesGlobal = resAsig.data || [];
 
+        // Limpiar buscadores
+        if(document.getElementById('buscador-insumos')) document.getElementById('buscador-insumos').value = "";
+        if(document.getElementById('buscador-entrada')) document.getElementById('buscador-entrada').value = "";
+        if(document.getElementById('buscador-salida')) document.getElementById('buscador-salida').value = "";
+        if(document.getElementById('buscador-pedido')) document.getElementById('buscador-pedido').value = "";
+
         renderizarInsumos();
         renderizarProveedores();
         renderizarCatalogoProveedores();
@@ -28,64 +34,82 @@ async function cargarDatosMaestros() {
     }
 }
 
-function renderizarInsumos() {
+function renderizarInsumos(filtro = '') {
     const tbody = document.getElementById('tabla-insumos-body');
     const selectInsumoAsignar = document.getElementById('select-insumo-asignar');
     const contenedorAlertas = document.getElementById('contenedor-alertas');
     
     tbody.innerHTML = '';
-    selectInsumoAsignar.innerHTML = '<option value="">Seleccionar Producto...</option>';
-    if(contenedorAlertas) contenedorAlertas.innerHTML = ''; 
+    
+    if (filtro === '') {
+        selectInsumoAsignar.innerHTML = '<option value="">Seleccionar Producto...</option>';
+        if(contenedorAlertas) contenedorAlertas.innerHTML = ''; 
+    }
+
+    const textoBusqueda = filtro.toLowerCase();
 
     insumosGlobal.forEach(insumo => {
         const stockActual = parseFloat(insumo.cantidad_actual);
         const stockMinimo = parseFloat(insumo.stock_minimo);
         let colorStock = 'color: var(--verde); font-weight: bold;';
         
-        if (stockActual <= stockMinimo) {
-            colorStock = 'color: var(--rojo-texto); font-weight: bold;';
-            if(contenedorAlertas) {
-                const divAlerta = document.createElement('div');
-                divAlerta.className = 'alerta alerta-peligro';
-                divAlerta.innerHTML = `<p><strong>¡Alerta!</strong> ${insumo.nombre} (Quedan: ${stockActual} ${insumo.unidad_medida}).</p>`;
-                contenedorAlertas.appendChild(divAlerta);
+        if (filtro === '') {
+            if (stockActual <= stockMinimo) {
+                colorStock = 'color: var(--rojo-texto); font-weight: bold;';
+                if(contenedorAlertas) {
+                    const divAlerta = document.createElement('div');
+                    divAlerta.className = 'alerta alerta-peligro';
+                    divAlerta.innerHTML = `<p><strong>¡Alerta!</strong> ${insumo.nombre} (Quedan: ${stockActual} ${insumo.unidad_medida}).</p>`;
+                    contenedorAlertas.appendChild(divAlerta);
+                }
             }
+            const nombreMostrar = insumo.codigo ? `[${insumo.codigo}] ${insumo.nombre}` : insumo.nombre;
+            selectInsumoAsignar.innerHTML += `<option value="${insumo.id}">${nombreMostrar}</option>`;
+        } else {
+            if (stockActual <= stockMinimo) colorStock = 'color: var(--rojo-texto); font-weight: bold;';
         }
 
-        tbody.innerHTML += `
-            <tr style="border-bottom: 1px solid var(--borde);">
-                <td style="padding: 10px;">${insumo.id}</td>
-                <td style="padding: 10px;">${insumo.nombre}</td>
-                <td style="padding: 10px;">${insumo.unidad_medida}</td>
-                <td style="padding: 10px;">${insumo.stock_minimo}</td>
-                <td style="padding: 10px;"><span style="${colorStock}">${insumo.cantidad_actual}</span></td>
-                <td style="padding: 10px; text-align: center;">
-                    <button class="btn btn-editar" data-id="${insumo.id}" data-nombre="${insumo.nombre}" data-unidad="${insumo.unidad_medida}" data-minimo="${insumo.stock_minimo}" data-actual="${insumo.cantidad_actual}" style="background-color: var(--naranja); color: white; padding: 5px 10px; margin-right: 5px;">✏️</button>
-                    <button class="btn btn-peligro btn-eliminar" data-id="${insumo.id}" style="padding: 5px 10px;">🗑️</button>
-                </td>
-            </tr>
-        `;
-        selectInsumoAsignar.innerHTML += `<option value="${insumo.id}">${insumo.nombre}</option>`;
+        const nombreInsumo = insumo.nombre ? insumo.nombre.toLowerCase() : '';
+        const codigoInsumo = insumo.codigo ? insumo.codigo.toLowerCase() : '';
+
+        if (nombreInsumo.includes(textoBusqueda) || codigoInsumo.includes(textoBusqueda)) {
+            tbody.innerHTML += `
+                <tr style="border-bottom: 1px solid var(--borde);">
+                    <td style="padding: 10px; font-weight: bold; color: var(--azul);">${insumo.codigo || '---'}</td>
+                    <td style="padding: 10px;">${insumo.nombre}</td>
+                    <td style="padding: 10px;">${insumo.unidad_medida}</td>
+                    <td style="padding: 10px;">${insumo.stock_minimo}</td>
+                    <td style="padding: 10px;"><span style="${colorStock}">${insumo.cantidad_actual}</span></td>
+                    <td style="padding: 10px; text-align: center;">
+                        <button class="btn btn-editar" data-id="${insumo.id}" data-codigo="${insumo.codigo || ''}" data-nombre="${insumo.nombre}" data-unidad="${insumo.unidad_medida}" data-minimo="${insumo.stock_minimo}" data-actual="${insumo.cantidad_actual}" style="background-color: var(--naranja); color: white; padding: 5px 10px; margin-right: 5px;">✏️</button>
+                        <button class="btn btn-peligro btn-eliminar" data-id="${insumo.id}" style="padding: 5px 10px;">🗑️</button>
+                    </td>
+                </tr>
+            `;
+        }
     });
 }
 
 function renderizarProveedores() {
-    const selectProvAsignar = document.getElementById('select-prov-asignar');
-    const selectProvEntrada = document.getElementById('select-prov-entrada');
-    const selectProvPedido = document.getElementById('select-prov-pedido');
-    const selectSalida = document.getElementById('select-prov-salida');
+    const selects = ['select-prov-asignar', 'select-prov-entrada', 'select-prov-pedido'];
     
-    // --- AQUÍ ESTÁ LA MAGIA PARA ENTRADAS LIBRES ---
-    selectProvAsignar.innerHTML = '<option value="">Seleccionar Proveedor...</option>';
-    selectProvEntrada.innerHTML = '<option value="">Seleccione el proveedor que llegó...</option><option value="todos">🌟 Mostrar TODOS los productos (Ingreso Libre)</option>';
-    selectProvPedido.innerHTML = '<option value="">Seleccione a quién le va a pedir...</option>';
-    selectSalida.innerHTML = '<option value="todos">Mostrar TODOS los productos</option>';
+    selects.forEach(id => {
+        const select = document.getElementById(id);
+        const placeholder = select.options[0].text;
+        select.innerHTML = `<option value="">${placeholder}</option>`;
+        
+        if (id === 'select-prov-entrada') {
+            select.innerHTML += '<option value="todos">🌟 Mostrar TODOS los productos (Ingreso Libre)</option>';
+        }
+        
+        proveedoresGlobal.forEach(prov => {
+            select.innerHTML += `<option value="${prov.id}">${prov.nombre}</option>`;
+        });
+    });
 
+    const selectSalida = document.getElementById('select-prov-salida');
+    selectSalida.innerHTML = '<option value="todos">Mostrar TODOS los productos</option>';
     proveedoresGlobal.forEach(prov => {
-        const opt = `<option value="${prov.id}">${prov.nombre}</option>`;
-        selectProvAsignar.innerHTML += opt;
-        selectProvEntrada.innerHTML += opt;
-        selectProvPedido.innerHTML += opt;
         selectSalida.innerHTML += `<option value="${prov.id}">Filtrar por: ${prov.nombre}</option>`;
     });
 }
@@ -105,9 +129,10 @@ function renderizarCatalogoProveedores() {
             susAsignaciones.forEach(asig => {
                 const insumoReal = insumosGlobal.find(i => i.id == asig.id_insumo);
                 if(insumoReal) {
+                    const nombreMostrar = insumoReal.codigo ? `[${insumoReal.codigo}] ${insumoReal.nombre}` : insumoReal.nombre;
                     htmlProductos += `
                         <li style="display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px dashed #ccc;">
-                            <span>📦 ${insumoReal.nombre}</span>
+                            <span>📦 ${nombreMostrar}</span>
                             <button class="btn btn-peligro btn-quitar-asignacion" data-id="${asig.id}" style="padding: 2px 8px; font-size: 0.8em;">Quitar</button>
                         </li>`;
                 }
@@ -133,14 +158,14 @@ function renderizarCatalogoProveedores() {
     });
 }
 
-function generarListaInteractiva(idProv, contenedorId, tipo) {
+// --- FUNCIÓN MODIFICADA PARA ACEPTAR BÚSQUEDAS ---
+function generarListaInteractiva(idProv, contenedorId, tipo, filtro = '') {
     const contenedor = document.getElementById(contenedorId);
     contenedor.innerHTML = '';
     
     if(!idProv) return;
 
     let productos = [];
-    // Si selecciona "Mostrar TODOS", carga el inventario completo
     if (idProv === 'todos') {
         productos = insumosGlobal;
     } else {
@@ -148,8 +173,18 @@ function generarListaInteractiva(idProv, contenedorId, tipo) {
         productos = asignaciones.map(a => insumosGlobal.find(i => i.id == a.id_insumo)).filter(i => i);
     }
 
+    // Filtrar los productos por el texto ingresado en el buscador
+    const textoBusqueda = filtro.toLowerCase();
+    if (textoBusqueda !== '') {
+        productos = productos.filter(p => {
+            const nombre = p.nombre ? p.nombre.toLowerCase() : '';
+            const codigo = p.codigo ? p.codigo.toLowerCase() : '';
+            return nombre.includes(textoBusqueda) || codigo.includes(textoBusqueda);
+        });
+    }
+
     if(productos.length === 0) {
-        contenedor.innerHTML = '<p style="color: gray;">No hay productos para mostrar.</p>';
+        contenedor.innerHTML = '<p style="color: gray;">No hay productos para mostrar con esa búsqueda.</p>';
         return;
     }
 
@@ -159,12 +194,17 @@ function generarListaInteractiva(idProv, contenedorId, tipo) {
             btnAccion = `<button class="btn btn-exito btn-procesar" data-id="${prod.id}" data-tipo="entrada" data-stock="${prod.cantidad_actual}" data-unidad="${prod.unidad_medida}" style="padding: 8px;">📥 Ingresar</button>`;
         } else if (tipo === 'salida') {
             btnAccion = `<button class="btn btn-peligro btn-procesar" data-id="${prod.id}" data-tipo="salida" data-stock="${prod.cantidad_actual}" data-unidad="${prod.unidad_medida}" style="padding: 8px;">📤 Descontar</button>`;
+        } else {
+            // Es un pedido
+            btnAccion = '';
         }
+
+        const nombreMostrar = prod.codigo ? `[${prod.codigo}] ${prod.nombre}` : prod.nombre;
 
         contenedor.innerHTML += `
             <div class="item-lista">
                 <div style="flex: 1;">
-                    <strong>${prod.nombre}</strong><br>
+                    <strong>${nombreMostrar}</strong><br>
                     <small style="color: gray;">Bodega: ${prod.cantidad_actual} ${prod.unidad_medida}</small>
                 </div>
                 <div class="control-cantidad" style="margin-right: 15px;">
@@ -181,6 +221,37 @@ function generarListaInteractiva(idProv, contenedorId, tipo) {
 document.addEventListener('DOMContentLoaded', () => {
     cargarDatosMaestros();
 
+    // --- EVENTOS DE LOS 4 BUSCADORES ---
+    const buscadorCat = document.getElementById('buscador-insumos');
+    if (buscadorCat) {
+        buscadorCat.addEventListener('input', (e) => renderizarInsumos(e.target.value));
+    }
+
+    const buscadorEntrada = document.getElementById('buscador-entrada');
+    if (buscadorEntrada) {
+        buscadorEntrada.addEventListener('input', (e) => {
+            const provId = document.getElementById('select-prov-entrada').value;
+            generarListaInteractiva(provId, 'lista-entrada-dinamica', 'entrada', e.target.value);
+        });
+    }
+
+    const buscadorSalida = document.getElementById('buscador-salida');
+    if (buscadorSalida) {
+        buscadorSalida.addEventListener('input', (e) => {
+            const provId = document.getElementById('select-prov-salida').value;
+            generarListaInteractiva(provId, 'lista-salida-dinamica', 'salida', e.target.value);
+        });
+    }
+
+    const buscadorPedido = document.getElementById('buscador-pedido');
+    if (buscadorPedido) {
+        buscadorPedido.addEventListener('input', (e) => {
+            const provId = document.getElementById('select-prov-pedido').value;
+            generarListaInteractiva(provId, 'lista-pedido-dinamica', 'pedido', e.target.value);
+        });
+    }
+
+    // --- NAVEGACIÓN ---
     document.querySelectorAll('.btn-nav').forEach(boton => {
         boton.addEventListener('click', () => {
             document.querySelectorAll('.btn-nav, .modulo').forEach(el => el.classList.remove('activo'));
@@ -189,33 +260,31 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+    // --- GUARDAR INSUMO ---
     document.getElementById('form-insumo').addEventListener('submit', async (e) => {
         e.preventDefault();
         const idEdicion = document.getElementById('insumo-id').value;
+        const codigo = document.getElementById('insumo-codigo').value; 
         const nombre = document.getElementById('insumo-nombre').value;
         const unidad = document.getElementById('insumo-unidad').value;
-        
-        // Conversión estricta a números para que Supabase no dé error
         const stockMinimo = parseFloat(document.getElementById('insumo-minimo').value);
         const stockActual = parseFloat(document.getElementById('insumo-inicial').value);
 
         try {
             if (idEdicion === "") {
-                const { error } = await db.from('insumos').insert([{ nombre, unidad_medida: unidad, stock_minimo: stockMinimo, cantidad_actual: stockActual }]);
+                const { error } = await db.from('insumos').insert([{ codigo, nombre, unidad_medida: unidad, stock_minimo: stockMinimo, cantidad_actual: stockActual }]);
                 if (error) throw error;
             } else {
-                const { error } = await db.from('insumos').update({ nombre, unidad_medida: unidad, stock_minimo: stockMinimo, cantidad_actual: stockActual }).eq('id', parseInt(idEdicion));
+                const { error } = await db.from('insumos').update({ codigo, nombre, unidad_medida: unidad, stock_minimo: stockMinimo, cantidad_actual: stockActual }).eq('id', parseInt(idEdicion));
                 if (error) throw error;
             }
             cancelarEdicion();
             cargarDatosMaestros(); 
             alert("✅ Producto guardado exitosamente.");
-        } catch (error) { 
-            console.error(error);
-            alert(`❌ Error al guardar: ${error.message}`); 
-        }
+        } catch (error) { alert(`❌ Error al guardar: ${error.message}`); }
     });
 
+    // --- GUARDAR PROVEEDOR ---
     document.getElementById('form-proveedor').addEventListener('submit', async (e) => {
         e.preventDefault();
         const idProv = document.getElementById('prov-id').value;
@@ -237,6 +306,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (error) { alert(`❌ Error al guardar proveedor: ${error.message}`); }
     });
 
+    // --- ASIGNAR PRODUCTOS ---
     document.getElementById('form-asignacion').addEventListener('submit', async (e) => {
         e.preventDefault();
         const idProv = document.getElementById('select-prov-asignar').value;
@@ -253,20 +323,28 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    document.getElementById('select-prov-entrada').addEventListener('change', (e) => generarListaInteractiva(e.target.value, 'lista-entrada-dinamica', 'entrada'));
-    document.getElementById('select-prov-salida').addEventListener('change', (e) => generarListaInteractiva(e.target.value, 'lista-salida-dinamica', 'salida'));
+    // --- CAMBIOS EN SELECTORES DE PROVEEDORES (Limpian el buscador respectivo) ---
+    document.getElementById('select-prov-entrada').addEventListener('change', (e) => {
+        document.getElementById('buscador-entrada').value = '';
+        generarListaInteractiva(e.target.value, 'lista-entrada-dinamica', 'entrada');
+    });
+    document.getElementById('select-prov-salida').addEventListener('change', (e) => {
+        document.getElementById('buscador-salida').value = '';
+        generarListaInteractiva(e.target.value, 'lista-salida-dinamica', 'salida');
+    });
     document.getElementById('select-prov-pedido').addEventListener('change', (e) => {
+        document.getElementById('buscador-pedido').value = '';
         generarListaInteractiva(e.target.value, 'lista-pedido-dinamica', 'pedido');
         document.getElementById('btn-imprimir-pedido').style.display = e.target.value ? 'block' : 'none';
     });
 
-    // --- AQUÍ ARREGLAMOS EL BUG DE LA IMAGEN (Uso de .closest) ---
+    // --- INTERACCIONES CON BOTONES (.closest) ---
     document.body.addEventListener('click', async (e) => {
         
-        // 1. Botón Editar Insumo
         const btnEditar = e.target.closest('.btn-editar');
         if (btnEditar) {
             document.getElementById('insumo-id').value = btnEditar.getAttribute('data-id');
+            document.getElementById('insumo-codigo').value = btnEditar.getAttribute('data-codigo');
             document.getElementById('insumo-nombre').value = btnEditar.getAttribute('data-nombre');
             document.getElementById('insumo-unidad').value = btnEditar.getAttribute('data-unidad');
             document.getElementById('insumo-minimo').value = btnEditar.getAttribute('data-minimo');
@@ -277,10 +355,9 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('btn-guardar').classList.replace('btn-primario', 'btn-editar');
             document.getElementById('btn-cancelar').classList.remove('oculto');
             window.scrollTo({ top: 0, behavior: 'smooth' });
-            return; // Detiene la ejecución aquí
+            return;
         }
 
-        // 2. Botones de Suma y Resta
         const btnSumar = e.target.closest('.btn-sumar');
         if (btnSumar) {
             const input = btnSumar.previousElementSibling;
@@ -295,7 +372,6 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // 3. Botón Procesar (Ingresar/Descontar)
         const btnProcesar = e.target.closest('.btn-procesar');
         if (btnProcesar) {
             const id = btnProcesar.getAttribute('data-id');
@@ -321,7 +397,6 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // 4. Quitar Asignación
         const btnQuitar = e.target.closest('.btn-quitar-asignacion');
         if (btnQuitar) {
             const idAsignacion = btnQuitar.getAttribute('data-id');
@@ -330,7 +405,6 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // 5. Eliminar Insumo
         const btnEliminar = e.target.closest('.btn-eliminar');
         if (btnEliminar) {
             if (window.confirm("¿Eliminar este producto permanentemente?")) {
@@ -341,7 +415,6 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // 6. Editar Proveedor
         const btnEditarProv = e.target.closest('.btn-editar-prov');
         if (btnEditarProv) {
             document.getElementById('prov-id').value = btnEditarProv.getAttribute('data-id');
@@ -356,7 +429,6 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // 7. Eliminar Proveedor
         const btnEliminarProv = e.target.closest('.btn-eliminar-prov');
         if (btnEliminarProv) {
             if (window.confirm("¿Estás seguro de eliminar este proveedor?")) {
@@ -371,6 +443,7 @@ document.addEventListener('DOMContentLoaded', () => {
 window.cancelarEdicion = function() {
     document.getElementById('form-insumo').reset();
     document.getElementById('insumo-id').value = "";
+    document.getElementById('insumo-codigo').value = ""; 
     document.getElementById('titulo-formulario').innerText = "🛒 Agregar Nuevo Insumo";
     document.getElementById('btn-guardar').innerText = "Guardar Insumo";
     document.getElementById('btn-guardar').classList.replace('btn-editar', 'btn-primario');
@@ -399,10 +472,11 @@ window.imprimirPedidoManual = function() {
             hayItems = true;
             const idProducto = input.id.split('-')[2]; 
             const prodInfo = insumosGlobal.find(i => i.id == idProducto);
+            const codigoTexto = prodInfo.codigo ? `[${prodInfo.codigo}] ` : '';
             
             htmlTabla += `
                 <tr>
-                    <td>${prodInfo.nombre}</td>
+                    <td>${codigoTexto}${prodInfo.nombre}</td>
                     <td><strong>${cantidad} ${prodInfo.unidad_medida}</strong></td>
                 </tr>`;
         }
@@ -445,9 +519,11 @@ window.imprimirReporteAutomatico = function() {
             hayCompras = true;
             contenido += `<h3>📦 Proveedor: ${prov.nombre} <br><small>📞 Tel: ${prov.telefono}</small></h3>
                 <table style="width:100%; border-collapse:collapse; text-align:left;" border="1" cellpadding="8">
-                    <tr style="background-color:#f4f4f4;"><th>Producto</th><th>Bodega</th><th>Mínimo</th></tr>`;
+                    <tr style="background-color:#f4f4f4;"><th>Código</th><th>Producto</th><th>Bodega</th><th>Mínimo</th></tr>`;
             productosNecesitados.forEach(prod => {
+                const codigoTexto = prod.codigo ? prod.codigo : '---';
                 contenido += `<tr>
+                    <td>${codigoTexto}</td>
                     <td>${prod.nombre}</td>
                     <td style="color:red; font-weight:bold;">${prod.cantidad_actual} ${prod.unidad_medida}</td>
                     <td>${prod.stock_minimo} ${prod.unidad_medida}</td>

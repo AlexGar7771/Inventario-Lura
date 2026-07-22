@@ -12,9 +12,9 @@
         <aside class="sidebar">
             <h2>Inventario Cocina</h2>
             <nav>
-                <button class="btn-nav activo" data-modulo="productos">Catálogo Insumos</button>
-                <button class="btn-nav" data-modulo="proveedores">Proveedores y Pedidos</button>
-                <button class="btn-nav" data-modulo="bodega">Entradas y Salidas</button>
+                <button class="btn-nav activo" data-modulo="productos">🛒 Catálogo Insumos</button>
+                <button class="btn-nav" data-modulo="proveedores">🤝 Proveedores y Pedidos</button>
+                <button class="btn-nav" data-modulo="bodega">📦 Entradas y Salidas</button>
             </nav>
         </aside>
 
@@ -26,10 +26,11 @@
                 <div id="contenedor-alertas" style="margin-bottom: 20px;"></div>
                 
                 <div class="tarjeta">
-                    <h3 id="titulo-formulario">Agregar Nuevo Insumo</h3>
+                    <h3 id="titulo-formulario">🛒 Agregar Nuevo Insumo</h3>
                     <form id="form-insumo" class="formulario-horizontal" style="flex-wrap: wrap;">
                         <input type="hidden" id="insumo-id" value="">
                         <div style="display: flex; gap: 15px; width: 100%; margin-bottom: 15px;">
+                            <input type="text" id="insumo-codigo" class="input-corto" placeholder="Código (Ej. P-001)">
                             <input type="text" id="insumo-nombre" placeholder="Nombre (Ej. Tomate)" required style="flex: 2;">
                             <input type="text" id="insumo-unidad" class="input-corto" placeholder="Unidad (Ej. Libras)" required>
                         </div>
@@ -51,11 +52,14 @@
                 </div>
 
                 <div class="tarjeta">
-                    <h3>Lista de Insumos Registrados</h3>
-                    <table style="width: 100%; text-align: left; border-collapse: collapse; margin-top: 15px;">
+                    <h3>📋 Lista de Insumos Registrados</h3>
+                    <div style="margin-top: 15px; margin-bottom: 15px;">
+                        <input type="text" id="buscador-insumos" placeholder="🔍 Buscar producto por código o por nombre..." style="width: 100%; padding: 12px; font-size: 1.05rem; border-radius: 5px; border: 1px solid var(--azul);">
+                    </div>
+                    <table style="width: 100%; text-align: left; border-collapse: collapse;">
                         <thead>
                             <tr style="border-bottom: 2px solid var(--borde); background-color: #f9fafb;">
-                                <th style="padding: 10px;">ID</th>
+                                <th style="padding: 10px;">Código</th>
                                 <th style="padding: 10px;">Nombre</th>
                                 <th style="padding: 10px;">Unidad</th>
                                 <th style="padding: 10px;">Mínimo</th>
@@ -71,11 +75,9 @@
             <!-- PANEL: PROVEEDORES Y PEDIDOS -->
             <section id="modulo-proveedores" class="modulo">
                 <h2>Gestión de Proveedores y Pedidos</h2>
-
                 <div style="display: flex; gap: 20px;">
-                    <!-- MODIFICADO: Formulario Proveedor con Edición -->
                     <div class="tarjeta" style="flex: 1;">
-                        <h3 id="titulo-form-proveedor">Agregar Nuevo Proveedor</h3>
+                        <h3 id="titulo-form-proveedor">🤝 Agregar Nuevo Proveedor</h3>
                         <form id="form-proveedor" class="formulario-horizontal" style="flex-wrap: wrap;">
                             <input type="hidden" id="prov-id" value="">
                             <input type="text" id="prov-nombre" placeholder="Nombre Empresa" required style="width: 100%; margin-bottom: 10px;">
@@ -88,7 +90,7 @@
                     </div>
 
                     <div class="tarjeta" style="flex: 1; border-top: 4px solid var(--azul);">
-                        <h3>Asignar Productos al Proveedor</h3>
+                        <h3>🔗 Asignar Productos al Proveedor</h3>
                         <form id="form-asignacion" style="display: flex; flex-direction: column; gap: 10px;">
                             <select id="select-prov-asignar" required><option value="">Seleccionar Proveedor...</option></select>
                             <select id="select-insumo-asignar" required><option value="">Seleccionar Producto...</option></select>
@@ -98,23 +100,20 @@
                 </div>
                 
                 <div class="tarjeta">
-                    <h3>Catálogo por Proveedor</h3>
-                    <div id="contenedor-catalogo-proveedores">
-                        <!-- JS inyectará los proveedores aquí -->
-                    </div>
+                    <h3>🏢 Catálogo por Proveedor</h3>
+                    <div id="contenedor-catalogo-proveedores"></div>
                 </div>
 
-                <!-- ARMAR PEDIDO -->
                 <div class="tarjeta" style="border-top: 4px solid var(--naranja);">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                        <h3>Armar Pedido a Proveedor</h3>
-                        <button class="btn btn-editar" onclick="imprimirReporteAutomatico()">Imprimir Faltantes Automático</button>
+                        <h3>📝 Armar Pedido a Proveedor</h3>
+                        <button class="btn btn-editar" onclick="imprimirReporteAutomatico()">🖨️ Imprimir Faltantes Automático</button>
                     </div>
-                    <p style="font-size: 0.9em; color: gray; margin-bottom: 15px;">Selecciona el proveedor, ingresa las cantidades que deseas pedir y genera la orden de compra.</p>
-                    
-                    <select id="select-prov-pedido" style="margin-bottom: 15px;">
+                    <select id="select-prov-pedido" style="margin-bottom: 10px;">
                         <option value="">Seleccione a quién le va a pedir...</option>
                     </select>
+                    <!-- NUEVO BUSCADOR DE PEDIDOS -->
+                    <input type="text" id="buscador-pedido" placeholder="🔍 Filtrar por código o nombre..." style="width: 100%; padding: 10px; margin-bottom: 15px; border-radius: 5px; border: 1px solid var(--borde);">
                     
                     <div id="lista-pedido-dinamica" style="margin-bottom: 20px;"></div>
                     <button id="btn-imprimir-pedido" class="btn btn-primario" style="width: 100%; display: none;" onclick="imprimirPedidoManual()">🖨️ Imprimir Esta Orden de Compra</button>
@@ -127,18 +126,22 @@
                 <div style="display: flex; gap: 20px;">
                     
                     <div class="tarjeta" style="flex: 1; border-top: 4px solid var(--verde);">
-                        <h3>    Recepción (Ingreso de Proveedor)</h3>
-                        <select id="select-prov-entrada" style="margin-bottom: 15px;">
+                        <h3>📥 Recepción (Ingreso de Proveedor)</h3>
+                        <select id="select-prov-entrada" style="margin-bottom: 10px;">
                             <option value="">Seleccione el proveedor que llegó...</option>
                         </select>
+                        <!-- NUEVO BUSCADOR ENTRADAS -->
+                        <input type="text" id="buscador-entrada" placeholder="🔍 Filtrar producto a ingresar..." style="width: 100%; padding: 10px; margin-bottom: 15px; border-radius: 5px; border: 1px solid var(--borde);">
                         <div id="lista-entrada-dinamica"></div>
                     </div>
 
                     <div class="tarjeta" style="flex: 1; border-top: 4px solid var(--rojo-texto);">
-                        <h3>Despacho / Merma (Salida)</h3>
-                        <select id="select-prov-salida" style="margin-bottom: 15px;">
+                        <h3>📤 Despacho / Merma (Salida)</h3>
+                        <select id="select-prov-salida" style="margin-bottom: 10px;">
                             <option value="todos">Mostrar TODOS los productos</option>
                         </select>
+                        <!-- NUEVO BUSCADOR SALIDAS -->
+                        <input type="text" id="buscador-salida" placeholder="🔍 Filtrar producto a descontar..." style="width: 100%; padding: 10px; margin-bottom: 15px; border-radius: 5px; border: 1px solid var(--borde);">
                         <div id="lista-salida-dinamica"></div>
                     </div>
 
