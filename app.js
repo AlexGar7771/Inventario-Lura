@@ -70,20 +70,22 @@ function renderizarInsumos() {
 }
 
 function renderizarProveedores() {
-    const selects = ['select-prov-asignar', 'select-prov-entrada', 'select-prov-pedido'];
-    
-    selects.forEach(id => {
-        const select = document.getElementById(id);
-        const placeholder = select.options[0].text;
-        select.innerHTML = `<option value="">${placeholder}</option>`;
-        proveedoresGlobal.forEach(prov => {
-            select.innerHTML += `<option value="${prov.id}">${prov.nombre}</option>`;
-        });
-    });
-
+    const selectProvAsignar = document.getElementById('select-prov-asignar');
+    const selectProvEntrada = document.getElementById('select-prov-entrada');
+    const selectProvPedido = document.getElementById('select-prov-pedido');
     const selectSalida = document.getElementById('select-prov-salida');
+    
+    // --- AQUÍ ESTÁ LA MAGIA PARA ENTRADAS LIBRES ---
+    selectProvAsignar.innerHTML = '<option value="">Seleccionar Proveedor...</option>';
+    selectProvEntrada.innerHTML = '<option value="">Seleccione el proveedor que llegó...</option><option value="todos">🌟 Mostrar TODOS los productos (Ingreso Libre)</option>';
+    selectProvPedido.innerHTML = '<option value="">Seleccione a quién le va a pedir...</option>';
     selectSalida.innerHTML = '<option value="todos">Mostrar TODOS los productos</option>';
+
     proveedoresGlobal.forEach(prov => {
+        const opt = `<option value="${prov.id}">${prov.nombre}</option>`;
+        selectProvAsignar.innerHTML += opt;
+        selectProvEntrada.innerHTML += opt;
+        selectProvPedido.innerHTML += opt;
         selectSalida.innerHTML += `<option value="${prov.id}">Filtrar por: ${prov.nombre}</option>`;
     });
 }
@@ -138,6 +140,7 @@ function generarListaInteractiva(idProv, contenedorId, tipo) {
     if(!idProv) return;
 
     let productos = [];
+    // Si selecciona "Mostrar TODOS", carga el inventario completo
     if (idProv === 'todos') {
         productos = insumosGlobal;
     } else {
@@ -191,19 +194,26 @@ document.addEventListener('DOMContentLoaded', () => {
         const idEdicion = document.getElementById('insumo-id').value;
         const nombre = document.getElementById('insumo-nombre').value;
         const unidad = document.getElementById('insumo-unidad').value;
-        const stockMinimo = document.getElementById('insumo-minimo').value;
-        const stockActual = document.getElementById('insumo-inicial').value;
+        
+        // Conversión estricta a números para que Supabase no dé error
+        const stockMinimo = parseFloat(document.getElementById('insumo-minimo').value);
+        const stockActual = parseFloat(document.getElementById('insumo-inicial').value);
 
         try {
             if (idEdicion === "") {
-                await db.from('insumos').insert([{ nombre, unidad_medida: unidad, stock_minimo: stockMinimo, cantidad_actual: stockActual }]);
+                const { error } = await db.from('insumos').insert([{ nombre, unidad_medida: unidad, stock_minimo: stockMinimo, cantidad_actual: stockActual }]);
+                if (error) throw error;
             } else {
-                await db.from('insumos').update({ nombre, unidad_medida: unidad, stock_minimo: stockMinimo, cantidad_actual: stockActual }).eq('id', idEdicion);
+                const { error } = await db.from('insumos').update({ nombre, unidad_medida: unidad, stock_minimo: stockMinimo, cantidad_actual: stockActual }).eq('id', parseInt(idEdicion));
+                if (error) throw error;
             }
             cancelarEdicion();
             cargarDatosMaestros(); 
-            alert("Producto guardado exitosamente.");
-        } catch (error) { alert("Error al guardar producto."); }
+            alert("✅ Producto guardado exitosamente.");
+        } catch (error) { 
+            console.error(error);
+            alert(`❌ Error al guardar: ${error.message}`); 
+        }
     });
 
     document.getElementById('form-proveedor').addEventListener('submit', async (e) => {
@@ -214,18 +224,19 @@ document.addEventListener('DOMContentLoaded', () => {
         
         try {
             if(idProv === "") {
-                await db.from('proveedores').insert([{ nombre, telefono }]);
-                alert("Proveedor guardado exitosamente.");
+                const { error } = await db.from('proveedores').insert([{ nombre, telefono }]);
+                if (error) throw error;
+                alert("✅ Proveedor guardado exitosamente.");
             } else {
-                await db.from('proveedores').update({ nombre, telefono }).eq('id', idProv);
-                alert("Proveedor actualizado exitosamente.");
+                const { error } = await db.from('proveedores').update({ nombre, telefono }).eq('id', idProv);
+                if (error) throw error;
+                alert("✅ Proveedor actualizado exitosamente.");
             }
             cancelarEdicionProv();
             cargarDatosMaestros();
-        } catch (error) { alert("Error al guardar proveedor."); }
+        } catch (error) { alert(`❌ Error al guardar proveedor: ${error.message}`); }
     });
 
-    // --- CORRECCIÓN CLAVE AQUÍ: Atrapar errores al asignar productos ---
     document.getElementById('form-asignacion').addEventListener('submit', async (e) => {
         e.preventDefault();
         const idProv = document.getElementById('select-prov-asignar').value;
@@ -233,18 +244,12 @@ document.addEventListener('DOMContentLoaded', () => {
         
         try {
             const { error } = await db.from('proveedor_insumo').insert([{ id_proveedor: idProv, id_insumo: idIns }]);
-            
-            if (error) {
-                console.error("Error devuelto por Supabase:", error);
-                throw error;
-            }
-
+            if (error) throw error;
             document.getElementById('form-asignacion').reset();
             cargarDatosMaestros();
             alert("✅ Producto asignado correctamente al proveedor.");
         } catch (error) { 
-            console.error("Error al asignar:", error);
-            alert("Error al vincular el producto. \n\nPosibles causas:\n1. El producto ya está asignado a este proveedor.\n2. Falta ejecutar el código SQL para crear la tabla 'proveedor_insumo' en Supabase."); 
+            alert("❌ Error al vincular. Probablemente ya está asignado a este proveedor."); 
         }
     });
 
@@ -255,84 +260,110 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('btn-imprimir-pedido').style.display = e.target.value ? 'block' : 'none';
     });
 
+    // --- AQUÍ ARREGLAMOS EL BUG DE LA IMAGEN (Uso de .closest) ---
     document.body.addEventListener('click', async (e) => {
-        const boton = e.target;
         
-        if (boton.classList.contains('btn-sumar')) {
-            const input = boton.previousElementSibling;
-            input.value = parseInt(input.value) + 1;
-        }
-        if (boton.classList.contains('btn-restar')) {
-            const input = boton.nextElementSibling;
-            if (parseInt(input.value) > 0) input.value = parseInt(input.value) - 1;
-        }
-
-        if (boton.classList.contains('btn-procesar')) {
-            const id = boton.getAttribute('data-id');
-            const tipo = boton.getAttribute('data-tipo');
-            const stockActual = parseFloat(boton.getAttribute('data-stock'));
-            const unidad = boton.getAttribute('data-unidad');
-            const inputElement = document.getElementById(`input-${tipo}-${id}`);
-            const cantidadModificar = parseFloat(inputElement.value);
-
-            if (cantidadModificar > 0) {
-                const nuevoStock = tipo === 'entrada' ? stockActual + cantidadModificar : stockActual - cantidadModificar;
-                try {
-                    await db.from('insumos').update({ cantidad_actual: nuevoStock }).eq('id', id);
-                    inputElement.value = 0; 
-                    cargarDatosMaestros(); 
-                    const accionText = tipo === 'entrada' ? 'Ingresaron' : 'Se descontaron';
-                    alert(`✅ ¡Hecho! ${accionText} ${cantidadModificar} ${unidad}.`);
-                } catch (error) { alert("Error al procesar en la base de datos."); }
-            } else {
-                alert("La cantidad debe ser mayor a 0.");
-            }
-        }
-
-        if (boton.classList.contains('btn-quitar-asignacion')) {
-            const idAsignacion = boton.getAttribute('data-id');
-            await db.from('proveedor_insumo').delete().eq('id', idAsignacion);
-            cargarDatosMaestros();
-        }
-
-        if (boton.classList.contains('btn-editar')) {
-            document.getElementById('insumo-id').value = boton.getAttribute('data-id');
-            document.getElementById('insumo-nombre').value = boton.getAttribute('data-nombre');
-            document.getElementById('insumo-unidad').value = boton.getAttribute('data-unidad');
-            document.getElementById('insumo-minimo').value = boton.getAttribute('data-minimo');
-            document.getElementById('insumo-inicial').value = boton.getAttribute('data-actual');
+        // 1. Botón Editar Insumo
+        const btnEditar = e.target.closest('.btn-editar');
+        if (btnEditar) {
+            document.getElementById('insumo-id').value = btnEditar.getAttribute('data-id');
+            document.getElementById('insumo-nombre').value = btnEditar.getAttribute('data-nombre');
+            document.getElementById('insumo-unidad').value = btnEditar.getAttribute('data-unidad');
+            document.getElementById('insumo-minimo').value = btnEditar.getAttribute('data-minimo');
+            document.getElementById('insumo-inicial').value = btnEditar.getAttribute('data-actual');
             
             document.getElementById('titulo-formulario').innerText = "✏️ Editando Insumo";
             document.getElementById('btn-guardar').innerText = "Actualizar Cambios";
             document.getElementById('btn-guardar').classList.replace('btn-primario', 'btn-editar');
             document.getElementById('btn-cancelar').classList.remove('oculto');
             window.scrollTo({ top: 0, behavior: 'smooth' });
+            return; // Detiene la ejecución aquí
         }
 
-        if (boton.classList.contains('btn-eliminar')) {
+        // 2. Botones de Suma y Resta
+        const btnSumar = e.target.closest('.btn-sumar');
+        if (btnSumar) {
+            const input = btnSumar.previousElementSibling;
+            input.value = parseInt(input.value) + 1;
+            return;
+        }
+
+        const btnRestar = e.target.closest('.btn-restar');
+        if (btnRestar) {
+            const input = btnRestar.nextElementSibling;
+            if (parseInt(input.value) > 0) input.value = parseInt(input.value) - 1;
+            return;
+        }
+
+        // 3. Botón Procesar (Ingresar/Descontar)
+        const btnProcesar = e.target.closest('.btn-procesar');
+        if (btnProcesar) {
+            const id = btnProcesar.getAttribute('data-id');
+            const tipo = btnProcesar.getAttribute('data-tipo');
+            const stockActual = parseFloat(btnProcesar.getAttribute('data-stock'));
+            const unidad = btnProcesar.getAttribute('data-unidad');
+            const inputElement = document.getElementById(`input-${tipo}-${id}`);
+            const cantidadModificar = parseFloat(inputElement.value);
+
+            if (cantidadModificar > 0) {
+                const nuevoStock = tipo === 'entrada' ? stockActual + cantidadModificar : stockActual - cantidadModificar;
+                try {
+                    const { error } = await db.from('insumos').update({ cantidad_actual: nuevoStock }).eq('id', id);
+                    if (error) throw error;
+                    inputElement.value = 0; 
+                    cargarDatosMaestros(); 
+                    const accionText = tipo === 'entrada' ? 'Ingresaron' : 'Se descontaron';
+                    alert(`✅ ¡Hecho! ${accionText} ${cantidadModificar} ${unidad}.`);
+                } catch (error) { alert("❌ Error al procesar en la base de datos."); }
+            } else {
+                alert("La cantidad debe ser mayor a 0.");
+            }
+            return;
+        }
+
+        // 4. Quitar Asignación
+        const btnQuitar = e.target.closest('.btn-quitar-asignacion');
+        if (btnQuitar) {
+            const idAsignacion = btnQuitar.getAttribute('data-id');
+            await db.from('proveedor_insumo').delete().eq('id', idAsignacion);
+            cargarDatosMaestros();
+            return;
+        }
+
+        // 5. Eliminar Insumo
+        const btnEliminar = e.target.closest('.btn-eliminar');
+        if (btnEliminar) {
             if (window.confirm("¿Eliminar este producto permanentemente?")) {
-                await db.from('insumos').delete().eq('id', boton.getAttribute('data-id'));
+                const { error } = await db.from('insumos').delete().eq('id', btnEliminar.getAttribute('data-id'));
+                if(error) alert("❌ No puedes eliminar un producto si aún está asignado a un proveedor. Quítalo del proveedor primero.");
                 cargarDatosMaestros();
             }
+            return;
         }
 
-        if (boton.classList.contains('btn-editar-prov')) {
-            document.getElementById('prov-id').value = boton.getAttribute('data-id');
-            document.getElementById('prov-nombre').value = boton.getAttribute('data-nombre');
-            document.getElementById('prov-telefono').value = boton.getAttribute('data-telefono');
+        // 6. Editar Proveedor
+        const btnEditarProv = e.target.closest('.btn-editar-prov');
+        if (btnEditarProv) {
+            document.getElementById('prov-id').value = btnEditarProv.getAttribute('data-id');
+            document.getElementById('prov-nombre').value = btnEditarProv.getAttribute('data-nombre');
+            document.getElementById('prov-telefono').value = btnEditarProv.getAttribute('data-telefono');
             
             document.getElementById('titulo-form-proveedor').innerText = "✏️ Editando Proveedor";
             document.getElementById('btn-guardar-prov').innerText = "Actualizar Cambios";
             document.getElementById('btn-guardar-prov').classList.replace('btn-primario', 'btn-editar');
             document.getElementById('btn-cancelar-prov').classList.remove('oculto');
             window.scrollTo({ top: 0, behavior: 'smooth' });
+            return;
         }
 
-        if (boton.classList.contains('btn-eliminar-prov')) {
-            if (window.confirm("¿Estás seguro de eliminar este proveedor? Sus productos asociados se desvincularán automáticamente.")) {
-                await db.from('proveedores').delete().eq('id', boton.getAttribute('data-id'));
+        // 7. Eliminar Proveedor
+        const btnEliminarProv = e.target.closest('.btn-eliminar-prov');
+        if (btnEliminarProv) {
+            if (window.confirm("¿Estás seguro de eliminar este proveedor?")) {
+                await db.from('proveedores').delete().eq('id', btnEliminarProv.getAttribute('data-id'));
                 cargarDatosMaestros();
             }
+            return;
         }
     });
 });

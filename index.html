@@ -12,9 +12,9 @@
         <aside class="sidebar">
             <h2>Inventario Cocina</h2>
             <nav>
-                <button class="btn-nav activo" data-modulo="productos">🛒 Catálogo Insumos</button>
-                <button class="btn-nav" data-modulo="proveedores">🤝 Proveedores y Pedidos</button>
-                <button class="btn-nav" data-modulo="bodega">📦 Entradas y Salidas</button>
+                <button class="btn-nav activo" data-modulo="productos">Catálogo Insumos</button>
+                <button class="btn-nav" data-modulo="proveedores">Proveedores y Pedidos</button>
+                <button class="btn-nav" data-modulo="bodega">Entradas y Salidas</button>
             </nav>
         </aside>
 
@@ -26,7 +26,7 @@
                 <div id="contenedor-alertas" style="margin-bottom: 20px;"></div>
                 
                 <div class="tarjeta">
-                    <h3 id="titulo-formulario">🛒 Agregar Nuevo Insumo</h3>
+                    <h3 id="titulo-formulario">Agregar Nuevo Insumo</h3>
                     <form id="form-insumo" class="formulario-horizontal" style="flex-wrap: wrap;">
                         <input type="hidden" id="insumo-id" value="">
                         <div style="display: flex; gap: 15px; width: 100%; margin-bottom: 15px;">
@@ -51,7 +51,7 @@
                 </div>
 
                 <div class="tarjeta">
-                    <h3>📋 Lista de Insumos Registrados</h3>
+                    <h3>Lista de Insumos Registrados</h3>
                     <table style="width: 100%; text-align: left; border-collapse: collapse; margin-top: 15px;">
                         <thead>
                             <tr style="border-bottom: 2px solid var(--borde); background-color: #f9fafb;">
@@ -75,7 +75,7 @@
                 <div style="display: flex; gap: 20px;">
                     <!-- MODIFICADO: Formulario Proveedor con Edición -->
                     <div class="tarjeta" style="flex: 1;">
-                        <h3 id="titulo-form-proveedor">🤝 Agregar Nuevo Proveedor</h3>
+                        <h3 id="titulo-form-proveedor">Agregar Nuevo Proveedor</h3>
                         <form id="form-proveedor" class="formulario-horizontal" style="flex-wrap: wrap;">
                             <input type="hidden" id="prov-id" value="">
                             <input type="text" id="prov-nombre" placeholder="Nombre Empresa" required style="width: 100%; margin-bottom: 10px;">
@@ -88,7 +88,7 @@
                     </div>
 
                     <div class="tarjeta" style="flex: 1; border-top: 4px solid var(--azul);">
-                        <h3>🔗 Asignar Productos al Proveedor</h3>
+                        <h3>Asignar Productos al Proveedor</h3>
                         <form id="form-asignacion" style="display: flex; flex-direction: column; gap: 10px;">
                             <select id="select-prov-asignar" required><option value="">Seleccionar Proveedor...</option></select>
                             <select id="select-insumo-asignar" required><option value="">Seleccionar Producto...</option></select>
@@ -98,7 +98,7 @@
                 </div>
                 
                 <div class="tarjeta">
-                    <h3>🏢 Catálogo por Proveedor</h3>
+                    <h3>Catálogo por Proveedor</h3>
                     <div id="contenedor-catalogo-proveedores">
                         <!-- JS inyectará los proveedores aquí -->
                     </div>
@@ -107,8 +107,8 @@
                 <!-- ARMAR PEDIDO -->
                 <div class="tarjeta" style="border-top: 4px solid var(--naranja);">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                        <h3>📝 Armar Pedido a Proveedor</h3>
-                        <button class="btn btn-editar" onclick="imprimirReporteAutomatico()">🖨️ Imprimir Faltantes Automático</button>
+                        <h3>Armar Pedido a Proveedor</h3>
+                        <button class="btn btn-editar" onclick="imprimirReporteAutomatico()">Imprimir Faltantes Automático</button>
                     </div>
                     <p style="font-size: 0.9em; color: gray; margin-bottom: 15px;">Selecciona el proveedor, ingresa las cantidades que deseas pedir y genera la orden de compra.</p>
                     
@@ -127,7 +127,7 @@
                 <div style="display: flex; gap: 20px;">
                     
                     <div class="tarjeta" style="flex: 1; border-top: 4px solid var(--verde);">
-                        <h3>📥 Recepción (Ingreso de Proveedor)</h3>
+                        <h3>    Recepción (Ingreso de Proveedor)</h3>
                         <select id="select-prov-entrada" style="margin-bottom: 15px;">
                             <option value="">Seleccione el proveedor que llegó...</option>
                         </select>
@@ -135,7 +135,7 @@
                     </div>
 
                     <div class="tarjeta" style="flex: 1; border-top: 4px solid var(--rojo-texto);">
-                        <h3>📤 Despacho / Merma (Salida)</h3>
+                        <h3>Despacho / Merma (Salida)</h3>
                         <select id="select-prov-salida" style="margin-bottom: 15px;">
                             <option value="todos">Mostrar TODOS los productos</option>
                         </select>
