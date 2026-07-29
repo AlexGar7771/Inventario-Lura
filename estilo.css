@@ -11,23 +11,20 @@ body { background-color: var(--fondo-app); color: var(--texto-principal); overfl
 
 /* --- RESPONSIVO Y ESTRUCTURA --- */
 .contenedor-app { display: flex; height: 100vh; position: relative; }
-
-/* Header solo para móviles */
 .header-mobile { display: none; align-items: center; padding: 15px; background: var(--fondo-sidebar); color: white; width: 100%; }
 .btn-menu-movil { background: transparent; border: none; color: white; font-size: 1.8rem; cursor: pointer; }
 
-/* Sidebar adaptativo */
 .sidebar { width: 250px; background-color: var(--fondo-sidebar); color: var(--texto-sidebar); padding: 20px; flex-shrink: 0; transition: transform 0.3s ease; z-index: 1000; }
 .sidebar h2 { margin-bottom: 30px; font-size: 1.5rem; text-align: center; }
 .btn-nav { display: block; width: 100%; text-align: left; padding: 12px 15px; margin-bottom: 10px; background: none; border: none; color: var(--texto-sidebar); cursor: pointer; border-radius: 5px; font-size: 1rem; transition: background 0.3s; }
 .btn-nav:hover, .btn-nav.activo { background-color: #374151; }
 
-.contenido-principal { flex: 1; padding: 30px; overflow-y: auto; width: 100%; }
+/* El contenedor principal es el que hace scroll ahora */
+.contenido-principal { flex: 1; padding: 30px; overflow-y: auto; width: 100%; scroll-behavior: smooth; }
 .modulo { display: none; }
 .modulo.activo { display: block; }
 h2 { font-size: 1.8rem; margin-bottom: 20px; }
 
-/* Contenedores Flexibles (Para que bajen en celular) */
 .contenedor-flex { display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 20px; }
 .contenedor-flex > .tarjeta { flex: 1; min-width: 300px; margin-bottom: 0; }
 
@@ -47,7 +44,7 @@ input[type="text"], input[type="number"], select { padding: 10px; border: 1px so
 .oculto { display: none !important; }
 
 /* Checklist de Insumos */
-.checklist-contenedor { max-height: 200px; overflow-y: auto; border: 1px solid var(--borde); padding: 10px; border-radius: 4px; background: #f9fafb; margin-bottom: 10px; }
+.checklist-contenedor { max-height: 250px; overflow-y: auto; border: 1px solid var(--borde); padding: 10px; border-radius: 4px; background: #f9fafb; margin-bottom: 10px; }
 .checklist-item { display: flex; align-items: center; padding: 8px; border-bottom: 1px solid #eee; cursor: pointer; }
 .checklist-item:last-child { border-bottom: none; }
 .checklist-item input { width: auto; margin-right: 10px; transform: scale(1.2); cursor: pointer; }

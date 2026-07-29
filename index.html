@@ -25,16 +25,29 @@
                 <button class="btn-nav activo" data-modulo="productos">Catálogo Insumos</button>
                 <button class="btn-nav" data-modulo="proveedores">Proveedores y Pedidos</button>
                 <button class="btn-nav" data-modulo="bodega">Entradas y Salidas</button>
+                <!-- MENÚ DE ALERTAS -->
+                <button class="btn-nav" data-modulo="alertas" style="color: #fca5a5; font-weight: bold;">Alertas de Stock</button>
             </nav>
         </aside>
 
         <!-- CONTENIDO PRINCIPAL -->
-        <main class="contenido-principal">
+        <main class="contenido-principal" id="area-scroll">
             
+            <!-- SECCIÓN: ALERTAS DE STOCK -->
+            <section id="modulo-alertas" class="modulo">
+                <h2>Alertas de Stock Mínimo</h2>
+                <div class="tarjeta" style="border-top: 4px solid var(--rojo-texto);">
+                    <h3 style="margin-bottom: 15px; color: var(--rojo-texto);">Productos con inventario crítico</h3>
+                    <p style="font-size: 0.9em; color: gray; margin-bottom: 15px;">Los siguientes productos han alcanzado o bajado de su nivel mínimo permitido en bodega.</p>
+                    <div id="contenedor-alertas-panel" style="display: flex; flex-direction: column; gap: 10px;">
+                        <!-- Aquí aparecerán las alertas -->
+                    </div>
+                </div>
+            </section>
+
             <!-- PANEL: CATÁLOGO DE PRODUCTOS -->
             <section id="modulo-productos" class="modulo activo">
                 <h2>Catálogo de Productos e Insumos</h2>
-                <div id="contenedor-alertas" style="margin-bottom: 20px;"></div>
                 
                 <div class="tarjeta">
                     <h3 id="titulo-formulario" style="margin-bottom: 15px;">Agregar Nuevo Insumo</h3>
@@ -67,7 +80,21 @@
                             </div>
                         </div>
 
-                        <div style="display: flex; gap: 10px; margin-top: 10px;">
+                        <!-- NUEVA SECCIÓN: ASIGNACIÓN RÁPIDA -->
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; padding-top: 15px; border-top: 1px dashed var(--borde);">
+                            <div style="flex: 2; min-width: 200px;">
+                                <label style="font-size: 0.85em; color: var(--azul); font-weight: bold;">Proveedor (Asignación Rápida):</label>
+                                <select id="insumo-prov-rapido">
+                                    <option value="">Sin asignar por ahora</option>
+                                </select>
+                            </div>
+                            <div style="flex: 1; min-width: 100px;">
+                                <label style="font-size: 0.85em; color: var(--azul); font-weight: bold;">Precio Unit. (Q):</label>
+                                <input type="number" id="insumo-precio-rapido" step="0.01" placeholder="Ej. 15.50">
+                            </div>
+                        </div>
+
+                        <div style="display: flex; gap: 10px; margin-top: 20px;">
                             <button type="submit" id="btn-guardar" class="btn btn-primario" style="flex: 1;">Guardar Insumo</button>
                             <button type="button" id="btn-cancelar" class="btn btn-peligro oculto" onclick="cancelarEdicion()">Cancelar</button>
                         </div>
@@ -116,7 +143,8 @@
                             
                             <label style="font-size: 0.9em; color: gray; margin-bottom: -10px;">2. Marcar productos a vincular:</label>
                             
-                            <!-- NUEVO: Contenedor para Checkboxes -->
+                            <input type="text" id="buscador-asignacion" placeholder="Filtrar insumos a asignar..." style="display: none;">
+                            
                             <div id="contenedor-checklist" class="checklist-contenedor">
                                 <p style="color: gray; font-size: 0.9em; text-align: center; margin-top: 10px;">Selecciona un proveedor primero.</p>
                             </div>
@@ -156,24 +184,30 @@
                 <div class="contenedor-flex">
                     
                     <div class="tarjeta" style="border-top: 4px solid var(--verde);">
-                        <h3 style="margin-bottom: 15px;">Recepción (Ingreso)</h3>
+                        <h3 style="margin-bottom: 15px;">Recepción (Ingreso en Lote)</h3>
+                        <p style="font-size: 0.85em; color: gray; margin-bottom: 15px;">Agrega las cantidades y luego presiona guardar al final.</p>
                         <select id="select-prov-entrada" style="margin-bottom: 10px;">
                             <option value="">Seleccione proveedor...</option>
                         </select>
                         <input type="text" id="buscador-entrada" placeholder="Filtrar producto a ingresar..." style="margin-bottom: 15px;">
                         
                         <div id="lista-entrada-dinamica"></div>
-                        <div id="gran-total-entrada" class="gran-total">Total: Q0.00</div>
+                        <div id="gran-total-entrada" class="gran-total" style="margin-bottom: 15px;">Total: Q0.00</div>
+                        
+                        <button id="btn-procesar-entrada-lote" class="btn btn-exito" style="width: 100%; display: none;" onclick="procesarLote('entrada')">📥 Guardar Todo el Ingreso</button>
                     </div>
 
                     <div class="tarjeta" style="border-top: 4px solid var(--rojo-texto);">
-                        <h3 style="margin-bottom: 15px;">Despacho / Merma</h3>
+                        <h3 style="margin-bottom: 15px;">Despacho / Merma (Salida en Lote)</h3>
+                        <p style="font-size: 0.85em; color: gray; margin-bottom: 15px;">Agrega las cantidades a descontar y presiona guardar.</p>
                         <select id="select-prov-salida" style="margin-bottom: 10px;">
                             <option value="todos">Mostrar TODOS los productos</option>
                         </select>
                         <input type="text" id="buscador-salida" placeholder="Filtrar producto a descontar..." style="margin-bottom: 15px;">
                         
                         <div id="lista-salida-dinamica"></div>
+                        
+                        <button id="btn-procesar-salida-lote" class="btn btn-peligro" style="width: 100%; margin-top: 15px; display: none;" onclick="procesarLote('salida')">📤 Guardar Todo el Despacho</button>
                     </div>
 
                 </div>

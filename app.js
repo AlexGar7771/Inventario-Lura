@@ -38,8 +38,9 @@ async function cargarDatosMaestros() {
 
 function renderizarInsumos(filtro = '') {
     const tbody = document.getElementById('tabla-insumos-body');
-    const contenedorAlertas = document.getElementById('contenedor-alertas');
-    
+    const contenedorAlertas = document.getElementById('contenedor-alertas-panel');
+    let contadorAlertas = 0;
+
     tbody.innerHTML = '';
     
     if (filtro === '' && contenedorAlertas) {
@@ -53,18 +54,17 @@ function renderizarInsumos(filtro = '') {
         const stockMinimo = parseFloat(insumo.stock_minimo);
         let colorStock = 'color: var(--verde); font-weight: bold;';
         
-        if (filtro === '') {
-            if (stockActual <= stockMinimo) {
-                colorStock = 'color: var(--rojo-texto); font-weight: bold;';
-                if(contenedorAlertas) {
-                    const divAlerta = document.createElement('div');
-                    divAlerta.className = 'alerta alerta-peligro';
-                    divAlerta.innerHTML = `<p><strong>Alerta!</strong> ${insumo.nombre} (Quedan: ${stockActual} ${insumo.unidad_medida}).</p>`;
-                    contenedorAlertas.appendChild(divAlerta);
-                }
+        if (stockActual <= stockMinimo) {
+            colorStock = 'color: var(--rojo-texto); font-weight: bold;';
+            if (filtro === '' && contenedorAlertas) {
+                contadorAlertas++;
+                contenedorAlertas.innerHTML += `
+                    <div style="background: white; padding: 12px; border-radius: 4px; border: 1px solid var(--borde); display: flex; justify-content: space-between;">
+                        <span><strong>${insumo.codigo ? `[${insumo.codigo}] ` : ''}${insumo.nombre}</strong></span>
+                        <span style="color: var(--rojo-texto); font-weight: bold;">Quedan: ${stockActual} ${insumo.unidad_medida}</span>
+                    </div>
+                `;
             }
-        } else {
-            if (stockActual <= stockMinimo) colorStock = 'color: var(--rojo-texto); font-weight: bold;';
         }
 
         const nombreInsumo = insumo.nombre ? insumo.nombre.toLowerCase() : '';
@@ -86,10 +86,15 @@ function renderizarInsumos(filtro = '') {
             `;
         }
     });
+
+    if (filtro === '' && contenedorAlertas && contadorAlertas === 0) {
+        contenedorAlertas.innerHTML = '<p style="color: var(--verde); font-weight: bold;">Todo el inventario está en niveles óptimos.</p>';
+    }
 }
 
 function renderizarProveedores() {
     const selects = ['select-prov-asignar', 'select-prov-entrada', 'select-prov-pedido'];
+    const selectProvRapido = document.getElementById('insumo-prov-rapido');
     
     selects.forEach(id => {
         const select = document.getElementById(id);
@@ -104,6 +109,14 @@ function renderizarProveedores() {
             select.innerHTML += `<option value="${prov.id}">${prov.nombre}</option>`;
         });
     });
+
+    // Llenar el select rápido en la creación de insumos
+    if (selectProvRapido) {
+        selectProvRapido.innerHTML = '<option value="">Sin asignar por ahora</option>';
+        proveedoresGlobal.forEach(prov => {
+            selectProvRapido.innerHTML += `<option value="${prov.id}">${prov.nombre}</option>`;
+        });
+    }
 
     const selectSalida = document.getElementById('select-prov-salida');
     selectSalida.innerHTML = '<option value="todos">Mostrar TODOS los productos</option>';
@@ -179,6 +192,9 @@ function generarListaInteractiva(idProv, contenedorId, tipo, filtro = '') {
     const contenedor = document.getElementById(contenedorId);
     contenedor.innerHTML = '';
     
+    if (tipo === 'entrada') document.getElementById('btn-procesar-entrada-lote').style.display = idProv ? 'block' : 'none';
+    if (tipo === 'salida') document.getElementById('btn-procesar-salida-lote').style.display = idProv ? 'block' : 'none';
+
     if(!idProv) {
         calcularTotales();
         return;
@@ -214,13 +230,6 @@ function generarListaInteractiva(idProv, contenedorId, tipo, filtro = '') {
 
     productos.forEach(prod => {
         const i = prod.insumo;
-        let btnAccion = '';
-        if(tipo === 'entrada') {
-            btnAccion = `<button class="btn btn-exito btn-procesar" data-id="${i.id}" data-tipo="entrada" data-stock="${i.cantidad_actual}" data-unidad="${i.unidad_medida}" style="padding: 8px;">Ingresar</button>`;
-        } else if (tipo === 'salida') {
-            btnAccion = `<button class="btn btn-peligro btn-procesar" data-id="${i.id}" data-tipo="salida" data-stock="${i.cantidad_actual}" data-unidad="${i.unidad_medida}" style="padding: 8px;">Descontar</button>`;
-        }
-
         const nombreMostrar = i.codigo ? `[${i.codigo}] ${i.nombre}` : i.nombre;
         const infoPrecio = idProv !== 'todos' ? `<br><small style="color: var(--verde); font-weight: bold;">Precio Unit: Q${parseFloat(prod.precio).toFixed(2)}</small>` : '';
 
@@ -233,14 +242,48 @@ function generarListaInteractiva(idProv, contenedorId, tipo, filtro = '') {
                 </div>
                 <div class="control-cantidad">
                     <button class="btn-circulo btn-restar">-</button>
-                    <input type="number" class="input-cant cant-input" id="input-${tipo}-${i.id}" data-precio="${prod.precio}" value="0" min="0">
+                    <input type="number" class="input-cant cant-input" id="input-${tipo}-${i.id}" data-id="${i.id}" data-stock="${i.cantidad_actual}" data-precio="${prod.precio}" value="0" min="0">
                     <button class="btn-circulo btn-sumar">+</button>
                 </div>
-                ${btnAccion}
             </div>
         `;
     });
     calcularTotales();
+}
+
+window.procesarLote = async function(tipo) {
+    const inputs = document.querySelectorAll(`#lista-${tipo}-dinamica .input-cant`);
+    let promesas = [];
+    let itemsModificados = 0;
+
+    inputs.forEach(input => {
+        const cantidadModificar = parseFloat(input.value);
+        if (cantidadModificar > 0) {
+            const id = parseInt(input.getAttribute('data-id'), 10);
+            const stockActual = parseFloat(input.getAttribute('data-stock'));
+            const nuevoStock = tipo === 'entrada' ? stockActual + cantidadModificar : stockActual - cantidadModificar;
+            
+            promesas.push(db.from('insumos').update({ cantidad_actual: nuevoStock }).eq('id', id));
+            itemsModificados++;
+        }
+    });
+
+    if (itemsModificados === 0) {
+        alert("No has puesto cantidades en ningún producto. Usa el botón + o escribe un número primero.");
+        return;
+    }
+
+    try {
+        const resultados = await Promise.all(promesas);
+        const errores = resultados.filter(r => r.error);
+        
+        if (errores.length > 0) throw new Error("Algunos productos no se pudieron actualizar.");
+
+        cargarDatosMaestros();
+        alert(`¡Éxito! Se guardaron ${itemsModificados} movimientos en bodega.`);
+    } catch (error) {
+        alert(`Error al guardar el lote: ${error.message}`);
+    }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -265,6 +308,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const buscadorCat = document.getElementById('buscador-insumos');
     if (buscadorCat) buscadorCat.addEventListener('input', (e) => renderizarInsumos(e.target.value));
+
+    const buscadorAsig = document.getElementById('buscador-asignacion');
+    if(buscadorAsig) {
+        buscadorAsig.addEventListener('input', (e) => {
+            const texto = e.target.value.toLowerCase();
+            const items = document.querySelectorAll('.checklist-item');
+            items.forEach(item => {
+                const contenido = item.textContent.toLowerCase();
+                if(contenido.includes(texto)) {
+                    item.style.display = 'flex';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+        });
+    }
 
     const buscadorEntrada = document.getElementById('buscador-entrada');
     if (buscadorEntrada) {
@@ -308,7 +367,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // --- GUARDAR Y EDITAR INSUMO ---
+    // --- GUARDAR INSUMO Y CREAR ASIGNACIÓN RÁPIDA ---
     document.getElementById('form-insumo').addEventListener('submit', async (e) => {
         e.preventDefault();
         const idEdicion = document.getElementById('insumo-id').value;
@@ -317,18 +376,39 @@ document.addEventListener('DOMContentLoaded', () => {
         const unidad = document.getElementById('insumo-unidad').value;
         const stockMinimo = parseFloat(document.getElementById('insumo-minimo').value) || 0;
         const stockActual = parseFloat(document.getElementById('insumo-inicial').value) || 0;
+        
+        const idProvRapido = document.getElementById('insumo-prov-rapido').value;
+        const precioRapido = parseFloat(document.getElementById('insumo-precio-rapido').value) || 0;
 
         try {
+            let idInsumoFinal = idEdicion;
+
             if (idEdicion === "") {
-                const { error } = await db.from('insumos').insert([{ codigo, nombre, unidad_medida: unidad, stock_minimo: stockMinimo, cantidad_actual: stockActual }]);
+                // Insertar con .select() para obtener el ID que Supabase le dio
+                const { data, error } = await db.from('insumos')
+                    .insert([{ codigo, nombre, unidad_medida: unidad, stock_minimo: stockMinimo, cantidad_actual: stockActual }])
+                    .select();
                 if (error) throw error;
+                idInsumoFinal = data[0].id;
             } else {
                 const idNumerico = parseInt(idEdicion, 10);
                 const { error } = await db.from('insumos')
                     .update({ codigo, nombre, unidad_medida: unidad, stock_minimo: stockMinimo, cantidad_actual: stockActual })
                     .eq('id', idNumerico);
                 if (error) throw error;
+                idInsumoFinal = idNumerico;
             }
+
+            // GESTIONAR LA ASIGNACIÓN RÁPIDA DE PROVEEDOR Y PRECIO
+            if (idProvRapido !== "") {
+                const existeAsignacion = asignacionesGlobal.find(a => a.id_proveedor == idProvRapido && a.id_insumo == idInsumoFinal);
+                if (existeAsignacion) {
+                    await db.from('proveedor_insumo').update({ precio: precioRapido }).eq('id', existeAsignacion.id);
+                } else {
+                    await db.from('proveedor_insumo').insert([{ id_proveedor: parseInt(idProvRapido, 10), id_insumo: idInsumoFinal, precio: precioRapido }]);
+                }
+            }
+
             cancelarEdicion();
             cargarDatosMaestros(); 
             alert("Producto guardado exitosamente.");
@@ -362,10 +442,13 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('select-prov-asignar').addEventListener('change', (e) => {
         const idProv = e.target.value;
         const contenedorChecklist = document.getElementById('contenedor-checklist');
+        const buscadorAsig = document.getElementById('buscador-asignacion');
+        
         contenedorChecklist.innerHTML = '';
 
         if (!idProv) {
             contenedorChecklist.innerHTML = '<p style="color: gray; font-size: 0.9em; text-align: center; margin-top: 10px;">Selecciona un proveedor primero.</p>';
+            buscadorAsig.style.display = 'none';
             return;
         }
 
@@ -373,8 +456,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const disponibles = insumosGlobal.filter(i => !asignadosId.includes(i.id));
 
         if (disponibles.length === 0) {
-            contenedorChecklist.innerHTML = '<p style="color: var(--verde); font-weight: bold; text-align: center; margin-top: 10px;">¡Todos los productos ya están asignados a este proveedor!</p>';
+            contenedorChecklist.innerHTML = '<p style="color: var(--verde); font-weight: bold; text-align: center; margin-top: 10px;">Todos los productos ya están asignados a este proveedor.</p>';
+            buscadorAsig.style.display = 'none';
         } else {
+            buscadorAsig.style.display = 'block';
+            buscadorAsig.value = '';
+            
             disponibles.forEach(insumo => {
                 const nombreMostrar = insumo.codigo ? `[${insumo.codigo}] ${insumo.nombre}` : insumo.nombre;
                 contenedorChecklist.innerHTML += `
@@ -429,10 +516,8 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('btn-imprimir-pedido').style.display = e.target.value ? 'block' : 'none';
     });
 
-    // --- DELEGACIÓN DE EVENTOS OPTIMIZADA ---
     document.body.addEventListener('click', async (e) => {
         
-        // 1. Editar Insumo leyendo de la memoria
         const btnEditarInsumo = e.target.closest('.btn-editar-insumo');
         if (btnEditarInsumo) {
             const idBuscar = btnEditarInsumo.getAttribute('data-id');
@@ -446,11 +531,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.getElementById('insumo-minimo').value = insumoEncontrado.stock_minimo || 0;
                 document.getElementById('insumo-inicial').value = insumoEncontrado.cantidad_actual || 0;
                 
+                // Cargar asignación rápida si existe al menos una
+                const asig = asignacionesGlobal.find(a => a.id_insumo == insumoEncontrado.id);
+                if (asig) {
+                    document.getElementById('insumo-prov-rapido').value = asig.id_proveedor;
+                    document.getElementById('insumo-precio-rapido').value = asig.precio || '';
+                } else {
+                    document.getElementById('insumo-prov-rapido').value = "";
+                    document.getElementById('insumo-precio-rapido').value = "";
+                }
+
                 document.getElementById('titulo-formulario').innerText = "Editando Insumo";
                 document.getElementById('btn-guardar').innerText = "Actualizar Cambios";
                 document.getElementById('btn-guardar').classList.replace('btn-primario', 'btn-editar');
                 document.getElementById('btn-cancelar').classList.remove('oculto');
-                window.scrollTo({ top: 0, behavior: 'smooth' });
+                
+                document.getElementById('area-scroll').scrollTo({ top: 0, behavior: 'smooth' });
             }
             return;
         }
@@ -492,31 +588,6 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        const btnProcesar = e.target.closest('.btn-procesar');
-        if (btnProcesar) {
-            const id = parseInt(btnProcesar.getAttribute('data-id'), 10);
-            const tipo = btnProcesar.getAttribute('data-tipo');
-            const stockActual = parseFloat(btnProcesar.getAttribute('data-stock'));
-            const unidad = btnProcesar.getAttribute('data-unidad');
-            const inputElement = document.getElementById(`input-${tipo}-${id}`);
-            const cantidadModificar = parseFloat(inputElement.value);
-
-            if (cantidadModificar > 0) {
-                const nuevoStock = tipo === 'entrada' ? stockActual + cantidadModificar : stockActual - cantidadModificar;
-                try {
-                    const { error } = await db.from('insumos').update({ cantidad_actual: nuevoStock }).eq('id', id);
-                    if (error) throw error;
-                    inputElement.value = 0; 
-                    cargarDatosMaestros(); 
-                    const accionText = tipo === 'entrada' ? 'Ingresaron' : 'Se descontaron';
-                    alert(`Hecho! ${accionText} ${cantidadModificar} ${unidad}.`);
-                } catch (error) { alert(`Error al procesar: ${error.message}`); }
-            } else {
-                alert("La cantidad debe ser mayor a 0.");
-            }
-            return;
-        }
-
         const btnQuitar = e.target.closest('.btn-quitar-asignacion');
         if (btnQuitar) {
             const idAsignacion = parseInt(btnQuitar.getAttribute('data-id'), 10);
@@ -535,7 +606,6 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // 2. Editar Proveedor leyendo de la memoria
         const btnEditarProv = e.target.closest('.btn-editar-prov');
         if (btnEditarProv) {
             const idBuscarProv = btnEditarProv.getAttribute('data-id');
@@ -550,7 +620,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.getElementById('btn-guardar-prov').innerText = "Actualizar Cambios";
                 document.getElementById('btn-guardar-prov').classList.replace('btn-primario', 'btn-editar');
                 document.getElementById('btn-cancelar-prov').classList.remove('oculto');
-                window.scrollTo({ top: 0, behavior: 'smooth' });
+                
+                document.getElementById('area-scroll').scrollTo({ top: 0, behavior: 'smooth' });
             }
             return;
         }
@@ -570,6 +641,8 @@ window.cancelarEdicion = function() {
     document.getElementById('form-insumo').reset();
     document.getElementById('insumo-id').value = "";
     document.getElementById('insumo-codigo').value = ""; 
+    document.getElementById('insumo-prov-rapido').value = ""; 
+    document.getElementById('insumo-precio-rapido').value = ""; 
     document.getElementById('titulo-formulario').innerText = "Agregar Nuevo Insumo";
     document.getElementById('btn-guardar').innerText = "Guardar Insumo";
     document.getElementById('btn-guardar').classList.replace('btn-editar', 'btn-primario');
