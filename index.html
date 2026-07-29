@@ -9,15 +9,26 @@
 <body>
 
     <div class="contenedor-app">
-        <aside class="sidebar">
-            <h2>Inventario Cocina</h2>
+        <!-- HEADER MÓVIL -->
+        <div class="header-mobile">
+            <button id="btn-menu-toggle" class="btn-menu-movil">☰</button>
+            <h2 style="flex: 1; text-align: center; margin: 0; font-size: 1.2rem;">Inventario Cocina</h2>
+        </div>
+
+        <!-- SIDEBAR -->
+        <aside class="sidebar" id="sidebar">
+            <h2 style="display: flex; justify-content: space-between; align-items: center;">
+                Menú
+                <button id="btn-cerrar-menu" style="background:none; border:none; color:white; font-size:1.5rem; cursor:pointer;" class="oculto">×</button>
+            </h2>
             <nav>
-                <button class="btn-nav activo" data-modulo="productos">🛒 Catálogo Insumos</button>
-                <button class="btn-nav" data-modulo="proveedores">🤝 Proveedores y Pedidos</button>
-                <button class="btn-nav" data-modulo="bodega">📦 Entradas y Salidas</button>
+                <button class="btn-nav activo" data-modulo="productos">Catálogo Insumos</button>
+                <button class="btn-nav" data-modulo="proveedores">Proveedores y Pedidos</button>
+                <button class="btn-nav" data-modulo="bodega">Entradas y Salidas</button>
             </nav>
         </aside>
 
+        <!-- CONTENIDO PRINCIPAL -->
         <main class="contenido-principal">
             
             <!-- PANEL: CATÁLOGO DE PRODUCTOS -->
@@ -26,25 +37,37 @@
                 <div id="contenedor-alertas" style="margin-bottom: 20px;"></div>
                 
                 <div class="tarjeta">
-                    <h3 id="titulo-formulario">🛒 Agregar Nuevo Insumo</h3>
-                    <form id="form-insumo" class="formulario-horizontal" style="flex-wrap: wrap;">
+                    <h3 id="titulo-formulario" style="margin-bottom: 15px;">Agregar Nuevo Insumo</h3>
+                    <form id="form-insumo" class="formulario-horizontal">
                         <input type="hidden" id="insumo-id" value="">
-                        <div style="display: flex; gap: 15px; width: 100%; margin-bottom: 15px;">
-                            <input type="text" id="insumo-codigo" class="input-corto" placeholder="Código (Ej. P-001)">
-                            <input type="text" id="insumo-nombre" placeholder="Nombre (Ej. Tomate)" required style="flex: 2;">
-                            <input type="text" id="insumo-unidad" class="input-corto" placeholder="Unidad (Ej. Libras)" required>
+                        
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                            <div style="flex: 1; min-width: 100px;">
+                                <label style="font-size: 0.8em; color: gray;">Código:</label>
+                                <input type="text" id="insumo-codigo" placeholder="Ej. P-001">
+                            </div>
+                            <div style="flex: 2; min-width: 200px;">
+                                <label style="font-size: 0.8em; color: gray;">Nombre:</label>
+                                <input type="text" id="insumo-nombre" placeholder="Nombre" required>
+                            </div>
+                            <div style="flex: 1; min-width: 100px;">
+                                <label style="font-size: 0.8em; color: gray;">Unidad:</label>
+                                <input type="text" id="insumo-unidad" placeholder="Ej. Lbs" required>
+                            </div>
                         </div>
-                        <div style="display: flex; gap: 15px; width: 100%; align-items: center;">
-                            <div style="flex: 1;">
+
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                            <div style="flex: 1; min-width: 120px;">
                                 <label style="font-size: 0.8em; color: #666;">Stock Mínimo (Alerta):</label>
                                 <input type="number" id="insumo-minimo" placeholder="Mínimo" required>
                             </div>
-                            <div style="flex: 1;">
+                            <div style="flex: 1; min-width: 120px;">
                                 <label style="font-size: 0.8em; color: #666;">Stock Actual Inicial:</label>
                                 <input type="number" id="insumo-inicial" placeholder="Cantidad actual" value="0" required>
                             </div>
                         </div>
-                        <div style="display: flex; gap: 10px; width: 100%; margin-top: 20px;">
+
+                        <div style="display: flex; gap: 10px; margin-top: 10px;">
                             <button type="submit" id="btn-guardar" class="btn btn-primario" style="flex: 1;">Guardar Insumo</button>
                             <button type="button" id="btn-cancelar" class="btn btn-peligro oculto" onclick="cancelarEdicion()">Cancelar</button>
                         </div>
@@ -52,96 +75,104 @@
                 </div>
 
                 <div class="tarjeta">
-                    <h3>📋 Lista de Insumos Registrados</h3>
-                    <div style="margin-top: 15px; margin-bottom: 15px;">
-                        <input type="text" id="buscador-insumos" placeholder="🔍 Buscar producto por código o por nombre..." style="width: 100%; padding: 12px; font-size: 1.05rem; border-radius: 5px; border: 1px solid var(--azul);">
+                    <h3 style="margin-bottom: 10px;">Lista de Insumos Registrados</h3>
+                    <input type="text" id="buscador-insumos" placeholder="Buscar por código o nombre..." style="width: 100%; padding: 12px; margin-bottom: 15px;">
+                    
+                    <div class="tabla-contenedor">
+                        <table>
+                            <thead>
+                                <tr style="background-color: #f9fafb;">
+                                    <th>Código</th><th>Nombre</th><th>Unidad</th><th>Mínimo</th><th>Stock</th><th style="text-align: center;">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabla-insumos-body"></tbody>
+                        </table>
                     </div>
-                    <table style="width: 100%; text-align: left; border-collapse: collapse;">
-                        <thead>
-                            <tr style="border-bottom: 2px solid var(--borde); background-color: #f9fafb;">
-                                <th style="padding: 10px;">Código</th>
-                                <th style="padding: 10px;">Nombre</th>
-                                <th style="padding: 10px;">Unidad</th>
-                                <th style="padding: 10px;">Mínimo</th>
-                                <th style="padding: 10px;">Stock Actual</th>
-                                <th style="padding: 10px; text-align: center;">Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tabla-insumos-body"></tbody>
-                    </table>
                 </div>
             </section>
 
             <!-- PANEL: PROVEEDORES Y PEDIDOS -->
             <section id="modulo-proveedores" class="modulo">
                 <h2>Gestión de Proveedores y Pedidos</h2>
-                <div style="display: flex; gap: 20px;">
-                    <div class="tarjeta" style="flex: 1;">
-                        <h3 id="titulo-form-proveedor">🤝 Agregar Nuevo Proveedor</h3>
-                        <form id="form-proveedor" class="formulario-horizontal" style="flex-wrap: wrap;">
+                
+                <div class="contenedor-flex">
+                    <div class="tarjeta">
+                        <h3 id="titulo-form-proveedor" style="margin-bottom: 15px;">Agregar Nuevo Proveedor</h3>
+                        <form id="form-proveedor" class="formulario-horizontal">
                             <input type="hidden" id="prov-id" value="">
-                            <input type="text" id="prov-nombre" placeholder="Nombre Empresa" required style="width: 100%; margin-bottom: 10px;">
-                            <input type="text" id="prov-telefono" placeholder="Teléfono" required style="width: 100%; margin-bottom: 10px;">
-                            <div style="display: flex; gap: 10px; width: 100%;">
+                            <input type="text" id="prov-nombre" placeholder="Nombre Empresa" required>
+                            <input type="text" id="prov-telefono" placeholder="Teléfono" required>
+                            <div style="display: flex; gap: 10px;">
                                 <button type="submit" id="btn-guardar-prov" class="btn btn-primario" style="flex: 1;">Guardar Proveedor</button>
                                 <button type="button" id="btn-cancelar-prov" class="btn btn-peligro oculto" onclick="cancelarEdicionProv()">Cancelar</button>
                             </div>
                         </form>
                     </div>
 
-                    <div class="tarjeta" style="flex: 1; border-top: 4px solid var(--azul);">
-                        <h3>🔗 Asignar Productos al Proveedor</h3>
-                        <form id="form-asignacion" style="display: flex; flex-direction: column; gap: 10px;">
-                            <select id="select-prov-asignar" required><option value="">Seleccionar Proveedor...</option></select>
-                            <select id="select-insumo-asignar" required><option value="">Seleccionar Producto...</option></select>
-                            <button type="submit" class="btn btn-exito">Vincular Producto</button>
+                    <div class="tarjeta" style="border-top: 4px solid var(--azul);">
+                        <h3 style="margin-bottom: 15px;">Asignar Productos al Proveedor</h3>
+                        <form id="form-asignacion" class="formulario-horizontal">
+                            <select id="select-prov-asignar" required><option value="">1. Seleccionar Proveedor...</option></select>
+                            
+                            <label style="font-size: 0.9em; color: gray; margin-bottom: -10px;">2. Marcar productos a vincular:</label>
+                            
+                            <!-- NUEVO: Contenedor para Checkboxes -->
+                            <div id="contenedor-checklist" class="checklist-contenedor">
+                                <p style="color: gray; font-size: 0.9em; text-align: center; margin-top: 10px;">Selecciona un proveedor primero.</p>
+                            </div>
+                            
+                            <button type="submit" class="btn btn-exito">Vincular Productos Seleccionados</button>
                         </form>
                     </div>
                 </div>
                 
                 <div class="tarjeta">
-                    <h3>🏢 Catálogo por Proveedor</h3>
+                    <h3>Catálogo por Proveedor (Editar Precios)</h3>
+                    <p style="font-size: 0.9em; color: gray; margin-bottom: 15px;">Aquí puedes editar el precio unitario de cada producto asignado.</p>
                     <div id="contenedor-catalogo-proveedores"></div>
                 </div>
 
                 <div class="tarjeta" style="border-top: 4px solid var(--naranja);">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                        <h3>📝 Armar Pedido a Proveedor</h3>
-                        <button class="btn btn-editar" onclick="imprimirReporteAutomatico()">🖨️ Imprimir Faltantes Automático</button>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+                        <h3>Armar Pedido a Proveedor</h3>
+                        <button class="btn btn-editar" onclick="imprimirReporteAutomatico()">Imprimir Faltantes</button>
                     </div>
+                    
                     <select id="select-prov-pedido" style="margin-bottom: 10px;">
                         <option value="">Seleccione a quién le va a pedir...</option>
                     </select>
-                    <!-- NUEVO BUSCADOR DE PEDIDOS -->
-                    <input type="text" id="buscador-pedido" placeholder="🔍 Filtrar por código o nombre..." style="width: 100%; padding: 10px; margin-bottom: 15px; border-radius: 5px; border: 1px solid var(--borde);">
+                    <input type="text" id="buscador-pedido" placeholder="Filtrar por código o nombre..." style="margin-bottom: 15px;">
                     
                     <div id="lista-pedido-dinamica" style="margin-bottom: 20px;"></div>
-                    <button id="btn-imprimir-pedido" class="btn btn-primario" style="width: 100%; display: none;" onclick="imprimirPedidoManual()">🖨️ Imprimir Esta Orden de Compra</button>
+                    
+                    <div id="gran-total-pedido" class="gran-total">Total: Q0.00</div>
+                    <button id="btn-imprimir-pedido" class="btn btn-primario" style="width: 100%; display: none; margin-top: 15px;" onclick="imprimirPedidoManual()">Imprimir Orden de Compra</button>
                 </div>
             </section>
 
             <!-- PANEL: BODEGA (ENTRADAS Y SALIDAS) -->
             <section id="modulo-bodega" class="modulo">
                 <h2>Operaciones de Bodega Automáticas</h2>
-                <div style="display: flex; gap: 20px;">
+                <div class="contenedor-flex">
                     
-                    <div class="tarjeta" style="flex: 1; border-top: 4px solid var(--verde);">
-                        <h3>📥 Recepción (Ingreso de Proveedor)</h3>
+                    <div class="tarjeta" style="border-top: 4px solid var(--verde);">
+                        <h3 style="margin-bottom: 15px;">Recepción (Ingreso)</h3>
                         <select id="select-prov-entrada" style="margin-bottom: 10px;">
-                            <option value="">Seleccione el proveedor que llegó...</option>
+                            <option value="">Seleccione proveedor...</option>
                         </select>
-                        <!-- NUEVO BUSCADOR ENTRADAS -->
-                        <input type="text" id="buscador-entrada" placeholder="🔍 Filtrar producto a ingresar..." style="width: 100%; padding: 10px; margin-bottom: 15px; border-radius: 5px; border: 1px solid var(--borde);">
+                        <input type="text" id="buscador-entrada" placeholder="Filtrar producto a ingresar..." style="margin-bottom: 15px;">
+                        
                         <div id="lista-entrada-dinamica"></div>
+                        <div id="gran-total-entrada" class="gran-total">Total: Q0.00</div>
                     </div>
 
-                    <div class="tarjeta" style="flex: 1; border-top: 4px solid var(--rojo-texto);">
-                        <h3>📤 Despacho / Merma (Salida)</h3>
+                    <div class="tarjeta" style="border-top: 4px solid var(--rojo-texto);">
+                        <h3 style="margin-bottom: 15px;">Despacho / Merma</h3>
                         <select id="select-prov-salida" style="margin-bottom: 10px;">
                             <option value="todos">Mostrar TODOS los productos</option>
                         </select>
-                        <!-- NUEVO BUSCADOR SALIDAS -->
-                        <input type="text" id="buscador-salida" placeholder="🔍 Filtrar producto a descontar..." style="width: 100%; padding: 10px; margin-bottom: 15px; border-radius: 5px; border: 1px solid var(--borde);">
+                        <input type="text" id="buscador-salida" placeholder="Filtrar producto a descontar..." style="margin-bottom: 15px;">
+                        
                         <div id="lista-salida-dinamica"></div>
                     </div>
 
