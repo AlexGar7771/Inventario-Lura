@@ -5,30 +5,40 @@ const db = window.supabase.createClient(supabaseUrl, supabaseKey);
 let insumosGlobal = [];
 let proveedoresGlobal = [];
 let asignacionesGlobal = [];
+let platillosGlobal = [];
+let recetasGlobal = []; 
 
 async function cargarDatosMaestros() {
     try {
         const resInsumos = await db.from('insumos').select('*').order('id', { ascending: true });
         const resProv = await db.from('proveedores').select('*').order('id', { ascending: true });
         const resAsig = await db.from('proveedor_insumo').select('id, id_proveedor, id_insumo, precio'); 
+        const resPlatillos = await db.from('platillos').select('*').order('nombre', { ascending: true });
+        const resRecetas = await db.from('platillo_insumo').select('*');
 
         insumosGlobal = resInsumos.data || [];
+        // Si hay insumos antiguos sin categoría, los asumimos como bodega
+        insumosGlobal.forEach(i => { if(!i.categoria) i.categoria = 'bodega'; });
+
         proveedoresGlobal = resProv.data || [];
         asignacionesGlobal = resAsig.data || [];
+        platillosGlobal = resPlatillos.data || [];
+        recetasGlobal = resRecetas.data || [];
 
-        if(document.getElementById('buscador-insumos')) document.getElementById('buscador-insumos').value = "";
-        if(document.getElementById('buscador-entrada')) document.getElementById('buscador-entrada').value = "";
-        if(document.getElementById('buscador-salida')) document.getElementById('buscador-salida').value = "";
-        if(document.getElementById('buscador-pedido')) document.getElementById('buscador-pedido').value = "";
+        // Limpiar cajas de busqueda
+        ['buscador-insumos', 'buscador-produccion', 'buscador-entrada', 'buscador-salida', 'buscador-pedido'].forEach(id => {
+            if(document.getElementById(id)) document.getElementById(id).value = "";
+        });
 
         renderizarInsumos();
         renderizarProveedores();
         renderizarCatalogoProveedores();
+        renderizarManejoRecetas();
+        renderizarTransformacion();
         
         document.getElementById('select-prov-entrada').dispatchEvent(new Event('change'));
         document.getElementById('select-prov-salida').dispatchEvent(new Event('change'));
         document.getElementById('select-prov-pedido').dispatchEvent(new Event('change'));
-        
         document.getElementById('select-prov-asignar').dispatchEvent(new Event('change'));
 
     } catch (error) {
@@ -36,18 +46,19 @@ async function cargarDatosMaestros() {
     }
 }
 
-function renderizarInsumos(filtro = '') {
-    const tbody = document.getElementById('tabla-insumos-body');
+// Función que renderiza ambas tablas de inventario (Bodega y Producción)
+function renderizarInsumos(filtroBodega = '', filtroProd = '') {
+    const tbodyBodega = document.getElementById('tabla-insumos-body');
+    const tbodyProd = document.getElementById('tabla-produccion-body');
     const contenedorAlertas = document.getElementById('contenedor-alertas-panel');
     let contadorAlertas = 0;
 
-    tbody.innerHTML = '';
-    
-    if (filtro === '' && contenedorAlertas) {
-        contenedorAlertas.innerHTML = ''; 
-    }
+    if (tbodyBodega) tbodyBodega.innerHTML = '';
+    if (tbodyProd) tbodyProd.innerHTML = '';
+    if (filtroBodega === '' && filtroProd === '' && contenedorAlertas) contenedorAlertas.innerHTML = ''; 
 
-    const textoBusqueda = filtro.toLowerCase();
+    const textoBodega = filtroBodega.toLowerCase();
+    const textoProd = filtroProd.toLowerCase();
 
     insumosGlobal.forEach(insumo => {
         const stockActual = parseFloat(insumo.cantidad_actual);
@@ -56,39 +67,139 @@ function renderizarInsumos(filtro = '') {
         
         if (stockActual <= stockMinimo) {
             colorStock = 'color: var(--rojo-texto); font-weight: bold;';
-            if (filtro === '' && contenedorAlertas) {
+            if (filtroBodega === '' && filtroProd === '' && contenedorAlertas) {
                 contadorAlertas++;
+                const procedencia = insumo.categoria === 'preparado' ? '(Producción)' : '(Bodega)';
                 contenedorAlertas.innerHTML += `
                     <div style="background: white; padding: 12px; border-radius: 4px; border: 1px solid var(--borde); display: flex; justify-content: space-between;">
-                        <span><strong>${insumo.codigo ? `[${insumo.codigo}] ` : ''}${insumo.nombre}</strong></span>
+                        <span><strong>${insumo.codigo ? `[${insumo.codigo}] ` : ''}${insumo.nombre} ${procedencia}</strong></span>
                         <span style="color: var(--rojo-texto); font-weight: bold;">Quedan: ${stockActual} ${insumo.unidad_medida}</span>
                     </div>
                 `;
             }
         }
 
-        const nombreInsumo = insumo.nombre ? insumo.nombre.toLowerCase() : '';
-        const codigoInsumo = insumo.codigo ? insumo.codigo.toLowerCase() : '';
+        const nombre = insumo.nombre ? insumo.nombre.toLowerCase() : '';
+        const codigo = insumo.codigo ? insumo.codigo.toLowerCase() : '';
+        const filaHtml = `
+            <tr style="border-bottom: 1px solid var(--borde);">
+                <td style="padding: 10px; font-weight: bold; color: var(--azul);">${insumo.codigo || '---'}</td>
+                <td style="padding: 10px;">${insumo.nombre}</td>
+                <td style="padding: 10px;">${insumo.unidad_medida}</td>
+                <td style="padding: 10px;">${insumo.stock_minimo}</td>
+                <td style="padding: 10px;"><span style="${colorStock}">${insumo.cantidad_actual}</span></td>
+                <td style="padding: 10px; text-align: center;">
+                    <button class="${insumo.categoria === 'preparado' ? 'btn-editar-prod' : 'btn-editar-insumo'}" data-id="${insumo.id}" style="background-color: var(--naranja); color: white; padding: 6px 12px; margin-right: 5px; margin-bottom: 5px; cursor: pointer; border: none; border-radius: 4px;">Editar</button>
+                    <button class="btn btn-peligro btn-eliminar" data-id="${insumo.id}" style="padding: 6px 12px; cursor: pointer; border: none; border-radius: 4px;">Borrar</button>
+                </td>
+            </tr>
+        `;
 
-        if (nombreInsumo.includes(textoBusqueda) || codigoInsumo.includes(textoBusqueda)) {
-            tbody.innerHTML += `
-                <tr style="border-bottom: 1px solid var(--borde);">
-                    <td style="padding: 10px; font-weight: bold; color: var(--azul);">${insumo.codigo || '---'}</td>
-                    <td style="padding: 10px;">${insumo.nombre}</td>
-                    <td style="padding: 10px;">${insumo.unidad_medida}</td>
-                    <td style="padding: 10px;">${insumo.stock_minimo}</td>
-                    <td style="padding: 10px;"><span style="${colorStock}">${insumo.cantidad_actual}</span></td>
-                    <td style="padding: 10px; text-align: center;">
-                        <button class="btn btn-editar-insumo" data-id="${insumo.id}" style="background-color: var(--naranja); color: white; padding: 6px 12px; margin-right: 5px; margin-bottom: 5px; cursor: pointer; border: none; border-radius: 4px;">Editar</button>
-                        <button class="btn btn-peligro btn-eliminar" data-id="${insumo.id}" style="padding: 6px 12px; cursor: pointer; border: none; border-radius: 4px;">Borrar</button>
-                    </td>
-                </tr>
-            `;
+        if (insumo.categoria === 'preparado') {
+            if (nombre.includes(textoProd) || codigo.includes(textoProd)) {
+                if(tbodyProd) tbodyProd.innerHTML += filaHtml;
+            }
+        } else {
+            if (nombre.includes(textoBodega) || codigo.includes(textoBodega)) {
+                if(tbodyBodega) tbodyBodega.innerHTML += filaHtml;
+            }
         }
     });
 
-    if (filtro === '' && contenedorAlertas && contadorAlertas === 0) {
+    if (filtroBodega === '' && filtroProd === '' && contenedorAlertas && contadorAlertas === 0) {
         contenedorAlertas.innerHTML = '<p style="color: var(--verde); font-weight: bold;">Todo el inventario está en niveles óptimos.</p>';
+    }
+}
+
+// Llena los selects del panel de Transformación
+function renderizarTransformacion() {
+    const selOrigen = document.getElementById('trans-origen');
+    const selDestino = document.getElementById('trans-destino');
+
+    if(!selOrigen || !selDestino) return;
+
+    selOrigen.innerHTML = '<option value="">De Bodega (Materia Prima)...</option>';
+    selDestino.innerHTML = '<option value="">A Producción (Preparados)...</option>';
+
+    insumosGlobal.forEach(i => {
+        const nombre = i.codigo ? `[${i.codigo}] ${i.nombre}` : i.nombre;
+        if(i.categoria === 'preparado') {
+            selDestino.innerHTML += `<option value="${i.id}">${nombre} (En: ${i.unidad_medida})</option>`;
+        } else {
+            selOrigen.innerHTML += `<option value="${i.id}">${nombre} (En: ${i.unidad_medida})</option>`;
+        }
+    });
+}
+
+function renderizarManejoRecetas() {
+    const selPlatilloReceta = document.getElementById('select-platillo-receta');
+    const selPlatilloProd = document.getElementById('select-platillo-produccion');
+    const selInsumoReceta = document.getElementById('select-insumo-receta');
+    const contenedorCatalogo = document.getElementById('contenedor-catalogo-recetas');
+
+    if(selPlatilloReceta) selPlatilloReceta.innerHTML = '<option value="">Seleccione un platillo...</option>';
+    if(selPlatilloProd) selPlatilloProd.innerHTML = '<option value="">¿Qué platillo se preparó?</option>';
+    
+    platillosGlobal.forEach(p => {
+        const opt = `<option value="${p.id}">${p.nombre}</option>`;
+        if(selPlatilloReceta) selPlatilloReceta.innerHTML += opt;
+        if(selPlatilloProd) selPlatilloProd.innerHTML += opt;
+    });
+
+    if(selInsumoReceta) {
+        selInsumoReceta.innerHTML = '<option value="">Seleccione el ingrediente...</option>';
+        
+        let htmlProd = '<optgroup label="Insumos de Producción (Recomendado)">';
+        let htmlBodega = '<optgroup label="Materia Prima Directa (Bodega)">';
+
+        insumosGlobal.forEach(i => {
+            const nombre = i.codigo ? `[${i.codigo}] ${i.nombre}` : i.nombre;
+            const option = `<option value="${i.id}">${nombre} (Medido en: ${i.unidad_medida})</option>`;
+            if (i.categoria === 'preparado') {
+                htmlProd += option;
+            } else {
+                htmlBodega += option;
+            }
+        });
+        htmlProd += '</optgroup>';
+        htmlBodega += '</optgroup>';
+
+        selInsumoReceta.innerHTML += htmlProd + htmlBodega;
+    }
+
+    if(contenedorCatalogo) {
+        contenedorCatalogo.innerHTML = '';
+        platillosGlobal.forEach(platillo => {
+            const susIngredientes = recetasGlobal.filter(r => r.id_platillo == platillo.id);
+            let htmlIng = '';
+            
+            if (susIngredientes.length === 0) {
+                htmlIng = '<p style="color: gray; font-size: 0.85em;">Sin receta armada.</p>';
+            } else {
+                htmlIng = '<ul style="list-style:none; padding:0;">';
+                susIngredientes.forEach(ing => {
+                    const insumoReal = insumosGlobal.find(i => i.id == ing.id_insumo);
+                    if(insumoReal) {
+                        htmlIng += `
+                            <li style="display:flex; justify-content:space-between; border-bottom: 1px dashed #ccc; padding: 5px 0;">
+                                <span>- ${ing.cantidad_usada} ${insumoReal.unidad_medida} de ${insumoReal.nombre}</span>
+                                <button class="btn btn-peligro btn-quitar-receta" data-id="${ing.id}" style="padding: 2px 6px; font-size: 0.75em;">X</button>
+                            </li>`;
+                    }
+                });
+                htmlIng += '</ul>';
+            }
+
+            contenedorCatalogo.innerHTML += `
+                <div style="border: 1px solid var(--borde); padding: 15px; border-radius: 5px; margin-bottom: 15px; background: #f9fafb;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                        <h4 style="color: var(--naranja); margin:0;">${platillo.nombre}</h4>
+                        <button class="btn btn-peligro btn-eliminar-platillo" data-id="${platillo.id}" style="padding: 4px 8px; border:none; border-radius:4px; font-size:0.8em;">Borrar Platillo</button>
+                    </div>
+                    ${htmlIng}
+                </div>
+            `;
+        });
     }
 }
 
@@ -98,11 +209,12 @@ function renderizarProveedores() {
     
     selects.forEach(id => {
         const select = document.getElementById(id);
+        if(!select) return;
         const placeholder = id === 'select-prov-asignar' ? '1. Seleccionar Proveedor...' : (id === 'select-prov-entrada' ? 'Seleccione proveedor...' : 'Seleccione a quién le va a pedir...');
         select.innerHTML = `<option value="">${placeholder}</option>`;
         
         if (id === 'select-prov-entrada') {
-            select.innerHTML += '<option value="todos">Mostrar TODOS los productos (Ingreso Libre)</option>';
+            select.innerHTML += '<option value="todos">Mostrar TODOS los productos</option>';
         }
         
         proveedoresGlobal.forEach(prov => {
@@ -110,7 +222,6 @@ function renderizarProveedores() {
         });
     });
 
-    // Llenar el select rápido en la creación de insumos
     if (selectProvRapido) {
         selectProvRapido.innerHTML = '<option value="">Sin asignar por ahora</option>';
         proveedoresGlobal.forEach(prov => {
@@ -119,14 +230,17 @@ function renderizarProveedores() {
     }
 
     const selectSalida = document.getElementById('select-prov-salida');
-    selectSalida.innerHTML = '<option value="todos">Mostrar TODOS los productos</option>';
-    proveedoresGlobal.forEach(prov => {
-        selectSalida.innerHTML += `<option value="${prov.id}">Filtrar por: ${prov.nombre}</option>`;
-    });
+    if(selectSalida) {
+        selectSalida.innerHTML = '<option value="todos">Mostrar TODOS los productos</option>';
+        proveedoresGlobal.forEach(prov => {
+            selectSalida.innerHTML += `<option value="${prov.id}">Filtrar por: ${prov.nombre}</option>`;
+        });
+    }
 }
 
 function renderizarCatalogoProveedores() {
     const contenedor = document.getElementById('contenedor-catalogo-proveedores');
+    if(!contenedor) return;
     contenedor.innerHTML = '';
 
     proveedoresGlobal.forEach(prov => {
@@ -188,8 +302,10 @@ function calcularTotales() {
     });
 }
 
+// Filtra para que en Entradas solo salgan los de 'Bodega' (no compras bolitas de carne)
 function generarListaInteractiva(idProv, contenedorId, tipo, filtro = '') {
     const contenedor = document.getElementById(contenedorId);
+    if(!contenedor) return;
     contenedor.innerHTML = '';
     
     if (tipo === 'entrada') document.getElementById('btn-procesar-entrada-lote').style.display = idProv ? 'block' : 'none';
@@ -202,7 +318,8 @@ function generarListaInteractiva(idProv, contenedorId, tipo, filtro = '') {
 
     let productos = [];
     if (idProv === 'todos') {
-        productos = insumosGlobal.map(i => ({ insumo: i, precio: 0 }));
+        // En compras y pedidos libres, solo muestra la materia prima (Bodega)
+        productos = insumosGlobal.filter(i => i.categoria !== 'preparado').map(i => ({ insumo: i, precio: 0 }));
     } else {
         const asignaciones = asignacionesGlobal.filter(a => a.id_proveedor == idProv);
         productos = asignaciones.map(a => {
@@ -269,18 +386,17 @@ window.procesarLote = async function(tipo) {
     });
 
     if (itemsModificados === 0) {
-        alert("No has puesto cantidades en ningún producto. Usa el botón + o escribe un número primero.");
+        alert("No has puesto cantidades en ningún producto.");
         return;
     }
 
     try {
         const resultados = await Promise.all(promesas);
         const errores = resultados.filter(r => r.error);
-        
         if (errores.length > 0) throw new Error("Algunos productos no se pudieron actualizar.");
 
         cargarDatosMaestros();
-        alert(`¡Éxito! Se guardaron ${itemsModificados} movimientos en bodega.`);
+        alert(`Éxito! Se guardaron ${itemsModificados} movimientos en bodega.`);
     } catch (error) {
         alert(`Error al guardar el lote: ${error.message}`);
     }
@@ -293,21 +409,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnCerrarMenu = document.getElementById('btn-cerrar-menu');
     const sidebar = document.getElementById('sidebar');
 
-    if (btnToggleMenu) {
-        btnToggleMenu.addEventListener('click', () => {
-            sidebar.classList.add('abierta');
-            if(window.innerWidth <= 768) btnCerrarMenu.classList.remove('oculto');
-        });
-    }
-    
-    if (btnCerrarMenu) {
-        btnCerrarMenu.addEventListener('click', () => {
-            sidebar.classList.remove('abierta');
-        });
-    }
+    if (btnToggleMenu) btnToggleMenu.addEventListener('click', () => { sidebar.classList.add('abierta'); if(window.innerWidth <= 768) btnCerrarMenu.classList.remove('oculto'); });
+    if (btnCerrarMenu) btnCerrarMenu.addEventListener('click', () => sidebar.classList.remove('abierta'));
 
-    const buscadorCat = document.getElementById('buscador-insumos');
-    if (buscadorCat) buscadorCat.addEventListener('input', (e) => renderizarInsumos(e.target.value));
+    // Buscadores Separados
+    const buscadorBodega = document.getElementById('buscador-insumos');
+    if (buscadorBodega) buscadorBodega.addEventListener('input', (e) => renderizarInsumos(e.target.value, ''));
+
+    const buscadorProd = document.getElementById('buscador-produccion');
+    if (buscadorProd) buscadorProd.addEventListener('input', (e) => renderizarInsumos('', e.target.value));
 
     const buscadorAsig = document.getElementById('buscador-asignacion');
     if(buscadorAsig) {
@@ -316,11 +426,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const items = document.querySelectorAll('.checklist-item');
             items.forEach(item => {
                 const contenido = item.textContent.toLowerCase();
-                if(contenido.includes(texto)) {
-                    item.style.display = 'flex';
-                } else {
-                    item.style.display = 'none';
-                }
+                item.style.display = contenido.includes(texto) ? 'flex' : 'none';
             });
         });
     }
@@ -350,9 +456,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     document.body.addEventListener('input', (e) => {
-        if(e.target.classList.contains('input-cant')) {
-            calcularTotales();
-        }
+        if(e.target.classList.contains('input-cant')) calcularTotales();
     });
 
     document.querySelectorAll('.btn-nav').forEach(boton => {
@@ -360,14 +464,11 @@ document.addEventListener('DOMContentLoaded', () => {
             document.querySelectorAll('.btn-nav, .modulo').forEach(el => el.classList.remove('activo'));
             boton.classList.add('activo');
             document.getElementById(`modulo-${boton.getAttribute('data-modulo')}`).classList.add('activo');
-            
-            if(window.innerWidth <= 768) {
-                sidebar.classList.remove('abierta');
-            }
+            if(window.innerWidth <= 768) sidebar.classList.remove('abierta');
         });
     });
 
-    // --- GUARDAR INSUMO Y CREAR ASIGNACIÓN RÁPIDA ---
+    // --- CREAR INSUMO BODEGA ---
     document.getElementById('form-insumo').addEventListener('submit', async (e) => {
         e.preventDefault();
         const idEdicion = document.getElementById('insumo-id').value;
@@ -376,17 +477,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const unidad = document.getElementById('insumo-unidad').value;
         const stockMinimo = parseFloat(document.getElementById('insumo-minimo').value) || 0;
         const stockActual = parseFloat(document.getElementById('insumo-inicial').value) || 0;
-        
         const idProvRapido = document.getElementById('insumo-prov-rapido').value;
         const precioRapido = parseFloat(document.getElementById('insumo-precio-rapido').value) || 0;
 
         try {
             let idInsumoFinal = idEdicion;
-
             if (idEdicion === "") {
-                // Insertar con .select() para obtener el ID que Supabase le dio
                 const { data, error } = await db.from('insumos')
-                    .insert([{ codigo, nombre, unidad_medida: unidad, stock_minimo: stockMinimo, cantidad_actual: stockActual }])
+                    .insert([{ codigo, nombre, unidad_medida: unidad, stock_minimo: stockMinimo, cantidad_actual: stockActual, categoria: 'bodega' }])
                     .select();
                 if (error) throw error;
                 idInsumoFinal = data[0].id;
@@ -399,7 +497,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 idInsumoFinal = idNumerico;
             }
 
-            // GESTIONAR LA ASIGNACIÓN RÁPIDA DE PROVEEDOR Y PRECIO
             if (idProvRapido !== "") {
                 const existeAsignacion = asignacionesGlobal.find(a => a.id_proveedor == idProvRapido && a.id_insumo == idInsumoFinal);
                 if (existeAsignacion) {
@@ -411,10 +508,134 @@ document.addEventListener('DOMContentLoaded', () => {
 
             cancelarEdicion();
             cargarDatosMaestros(); 
-            alert("Producto guardado exitosamente.");
-        } catch (error) { 
-            console.error(error);
-            alert(`Error al guardar producto: ${error.message}`); 
+            alert("Materia prima guardada exitosamente.");
+        } catch (error) { alert(`Error al guardar: ${error.message}`); }
+    });
+
+    // --- CREAR INSUMO PRODUCCIÓN ---
+    const formInsumoProd = document.getElementById('form-insumo-prod');
+    if(formInsumoProd) {
+        formInsumoProd.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const idEdicion = document.getElementById('prod-id').value;
+            const codigo = document.getElementById('prod-codigo').value; 
+            const nombre = document.getElementById('prod-nombre').value;
+            const unidad = document.getElementById('prod-unidad').value;
+            const stockMinimo = parseFloat(document.getElementById('prod-minimo').value) || 0;
+            const stockActual = parseFloat(document.getElementById('prod-inicial').value) || 0;
+
+            try {
+                if (idEdicion === "") {
+                    const { error } = await db.from('insumos')
+                        .insert([{ codigo, nombre, unidad_medida: unidad, stock_minimo: stockMinimo, cantidad_actual: stockActual, categoria: 'preparado' }]);
+                    if (error) throw error;
+                } else {
+                    const { error } = await db.from('insumos')
+                        .update({ codigo, nombre, unidad_medida: unidad, stock_minimo: stockMinimo, cantidad_actual: stockActual })
+                        .eq('id', parseInt(idEdicion, 10));
+                    if (error) throw error;
+                }
+                cancelarEdicionProd();
+                cargarDatosMaestros(); 
+                alert("Insumo de producción guardado exitosamente.");
+            } catch (error) { alert(`Error al guardar: ${error.message}`); }
+        });
+    }
+
+    // --- PROCESAR (TRANSFORMAR BODEGA -> PRODUCCIÓN) ---
+    const formTransformar = document.getElementById('form-transformar');
+    if(formTransformar) {
+        formTransformar.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const idOrigen = document.getElementById('trans-origen').value;
+            const cantOrigen = parseFloat(document.getElementById('trans-origen-cant').value);
+            const idDestino = document.getElementById('trans-destino').value;
+            const cantDestino = parseFloat(document.getElementById('trans-destino-cant').value);
+
+            const insumoOrigen = insumosGlobal.find(i => i.id == idOrigen);
+            const insumoDestino = insumosGlobal.find(i => i.id == idDestino);
+
+            if (parseFloat(insumoOrigen.cantidad_actual) < cantOrigen) {
+                alert(`No hay suficiente materia prima. Tienes ${insumoOrigen.cantidad_actual} en bodega.`);
+                return;
+            }
+
+            try {
+                // Restar a bodega
+                const nuevoOrigen = parseFloat(insumoOrigen.cantidad_actual) - cantOrigen;
+                // Sumar a producción
+                const nuevoDestino = parseFloat(insumoDestino.cantidad_actual) + cantDestino;
+
+                await db.from('insumos').update({ cantidad_actual: nuevoOrigen }).eq('id', idOrigen);
+                await db.from('insumos').update({ cantidad_actual: nuevoDestino }).eq('id', idDestino);
+
+                document.getElementById('form-transformar').reset();
+                cargarDatosMaestros();
+                alert(`Transformación exitosa. Se descontaron ${cantOrigen} ${insumoOrigen.unidad_medida} y se crearon ${cantDestino} ${insumoDestino.unidad_medida}.`);
+            } catch (error) {
+                alert(`Error en la transformación: ${error.message}`);
+            }
+        });
+    }
+
+    // --- FORMULARIOS DE RECETAS ---
+    document.getElementById('form-platillo').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const nombre = document.getElementById('platillo-nombre').value;
+        try {
+            const { error } = await db.from('platillos').insert([{ nombre }]);
+            if (error) throw error;
+            document.getElementById('form-platillo').reset();
+            cargarDatosMaestros();
+            alert("Platillo creado exitosamente.");
+        } catch (error) { alert(`Error al crear platillo: ${error.message}`); }
+    });
+
+    document.getElementById('form-receta').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const idPlatillo = document.getElementById('select-platillo-receta').value;
+        const idInsumo = document.getElementById('select-insumo-receta').value;
+        const cant = parseFloat(document.getElementById('cantidad-receta').value);
+        
+        try {
+            const { error } = await db.from('platillo_insumo').insert([{ id_platillo: idPlatillo, id_insumo: idInsumo, cantidad_usada: cant }]);
+            if (error) throw error;
+            document.getElementById('form-receta').reset();
+            cargarDatosMaestros();
+        } catch (error) { alert("Error al asignar ingrediente (Tal vez ya estaba asignado)."); }
+    });
+
+    document.getElementById('form-produccion').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const idPlatillo = document.getElementById('select-platillo-produccion').value;
+        const cantidadPreparar = parseFloat(document.getElementById('cantidad-produccion').value);
+
+        const ingredientes = recetasGlobal.filter(r => r.id_platillo == idPlatillo);
+        if (ingredientes.length === 0) {
+            alert("Este platillo no tiene ingredientes en su receta."); 
+            return;
+        }
+
+        let promesas = [];
+        ingredientes.forEach(ing => {
+            const insumo = insumosGlobal.find(i => i.id == ing.id_insumo);
+            if (insumo) {
+                const totalDescontar = parseFloat(ing.cantidad_usada) * cantidadPreparar;
+                const nuevoStock = parseFloat(insumo.cantidad_actual) - totalDescontar;
+                promesas.push(db.from('insumos').update({cantidad_actual: nuevoStock}).eq('id', insumo.id));
+            }
+        });
+
+        try {
+            const resultados = await Promise.all(promesas);
+            const errores = resultados.filter(r => r.error);
+            if (errores.length > 0) throw new Error("Fallo en la conexión al descontar.");
+
+            alert(`Listo! Se prepararon ${cantidadPreparar} unidades y se descontó la materia prima y/o pre-procesados.`);
+            document.getElementById('form-produccion').reset();
+            cargarDatosMaestros();
+        } catch (error) {
+            alert(`Error al procesar la producción: ${error.message}`);
         }
     });
 
@@ -453,10 +674,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const asignadosId = asignacionesGlobal.filter(a => a.id_proveedor == idProv).map(a => a.id_insumo);
-        const disponibles = insumosGlobal.filter(i => !asignadosId.includes(i.id));
+        // Solo mostrar los de Bodega para asignarle proveedor
+        const disponibles = insumosGlobal.filter(i => !asignadosId.includes(i.id) && i.categoria !== 'preparado');
 
         if (disponibles.length === 0) {
-            contenedorChecklist.innerHTML = '<p style="color: var(--verde); font-weight: bold; text-align: center; margin-top: 10px;">Todos los productos ya están asignados a este proveedor.</p>';
+            contenedorChecklist.innerHTML = '<p style="color: var(--verde); font-weight: bold; text-align: center; margin-top: 10px;">Toda la materia prima ya está asignada a este proveedor.</p>';
             buscadorAsig.style.display = 'none';
         } else {
             buscadorAsig.style.display = 'block';
@@ -518,6 +740,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.body.addEventListener('click', async (e) => {
         
+        // Editar Insumo BODEGA
         const btnEditarInsumo = e.target.closest('.btn-editar-insumo');
         if (btnEditarInsumo) {
             const idBuscar = btnEditarInsumo.getAttribute('data-id');
@@ -531,7 +754,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.getElementById('insumo-minimo').value = insumoEncontrado.stock_minimo || 0;
                 document.getElementById('insumo-inicial').value = insumoEncontrado.cantidad_actual || 0;
                 
-                // Cargar asignación rápida si existe al menos una
                 const asig = asignacionesGlobal.find(a => a.id_insumo == insumoEncontrado.id);
                 if (asig) {
                     document.getElementById('insumo-prov-rapido').value = asig.id_proveedor;
@@ -541,10 +763,33 @@ document.addEventListener('DOMContentLoaded', () => {
                     document.getElementById('insumo-precio-rapido').value = "";
                 }
 
-                document.getElementById('titulo-formulario').innerText = "Editando Insumo";
+                document.getElementById('titulo-formulario').innerText = "Editando Materia Prima";
                 document.getElementById('btn-guardar').innerText = "Actualizar Cambios";
                 document.getElementById('btn-guardar').classList.replace('btn-primario', 'btn-editar');
                 document.getElementById('btn-cancelar').classList.remove('oculto');
+                
+                document.getElementById('area-scroll').scrollTo({ top: 0, behavior: 'smooth' });
+            }
+            return;
+        }
+
+        // Editar Insumo PRODUCCION
+        const btnEditarProd = e.target.closest('.btn-editar-prod');
+        if (btnEditarProd) {
+            const idBuscar = btnEditarProd.getAttribute('data-id');
+            const insumoEncontrado = insumosGlobal.find(i => i.id == idBuscar);
+            
+            if (insumoEncontrado) {
+                document.getElementById('prod-id').value = insumoEncontrado.id;
+                document.getElementById('prod-codigo').value = insumoEncontrado.codigo || '';
+                document.getElementById('prod-nombre').value = insumoEncontrado.nombre || '';
+                document.getElementById('prod-unidad').value = insumoEncontrado.unidad_medida || '';
+                document.getElementById('prod-minimo').value = insumoEncontrado.stock_minimo || 0;
+                document.getElementById('prod-inicial').value = insumoEncontrado.cantidad_actual || 0;
+                
+                document.getElementById('btn-guardar-prod').innerText = "Actualizar Cambios";
+                document.getElementById('btn-guardar-prod').classList.replace('btn-primario', 'btn-editar');
+                document.getElementById('btn-cancelar-prod').classList.remove('oculto');
                 
                 document.getElementById('area-scroll').scrollTo({ top: 0, behavior: 'smooth' });
             }
@@ -562,12 +807,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const { error } = await db.from('proveedor_insumo').update({ precio: parseFloat(nuevoPrecio) }).eq('id', idAsig);
                     if (error) throw error;
                     cargarDatosMaestros();
-                    alert("Precio actualizado exitosamente.");
-                } catch (err) {
-                    alert("Error al actualizar precio: " + err.message);
-                }
-            } else if (nuevoPrecio !== null) {
-                alert("Por favor ingrese un número válido.");
+                } catch (err) { alert("Error al actualizar precio: " + err.message); }
             }
             return;
         }
@@ -600,7 +840,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (btnEliminar) {
             if (window.confirm("¿Eliminar este producto permanentemente?")) {
                 const { error } = await db.from('insumos').delete().eq('id', parseInt(btnEliminar.getAttribute('data-id'), 10));
-                if(error) alert("No puedes eliminar un producto si aún está asignado a un proveedor. Quítalo del proveedor primero.");
+                if(error) alert("No puedes eliminar un producto si aún está asignado a un proveedor o platillo.");
                 cargarDatosMaestros();
             }
             return;
@@ -634,6 +874,23 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             return;
         }
+
+        const btnQuitarReceta = e.target.closest('.btn-quitar-receta');
+        if (btnQuitarReceta) {
+            const idReceta = parseInt(btnQuitarReceta.getAttribute('data-id'), 10);
+            await db.from('platillo_insumo').delete().eq('id', idReceta);
+            cargarDatosMaestros();
+            return;
+        }
+
+        const btnEliminarPlatillo = e.target.closest('.btn-eliminar-platillo');
+        if (btnEliminarPlatillo) {
+            if (window.confirm("¿Eliminar este platillo? Se borrará su receta también.")) {
+                await db.from('platillos').delete().eq('id', parseInt(btnEliminarPlatillo.getAttribute('data-id'), 10));
+                cargarDatosMaestros();
+            }
+            return;
+        }
     });
 });
 
@@ -643,10 +900,18 @@ window.cancelarEdicion = function() {
     document.getElementById('insumo-codigo').value = ""; 
     document.getElementById('insumo-prov-rapido').value = ""; 
     document.getElementById('insumo-precio-rapido').value = ""; 
-    document.getElementById('titulo-formulario').innerText = "Agregar Nuevo Insumo";
-    document.getElementById('btn-guardar').innerText = "Guardar Insumo";
+    document.getElementById('titulo-formulario').innerText = "Agregar Nueva Materia Prima";
+    document.getElementById('btn-guardar').innerText = "Guardar Materia Prima";
     document.getElementById('btn-guardar').classList.replace('btn-editar', 'btn-primario');
     document.getElementById('btn-cancelar').classList.add('oculto');
+}
+
+window.cancelarEdicionProd = function() {
+    document.getElementById('form-insumo-prod').reset();
+    document.getElementById('prod-id').value = "";
+    document.getElementById('btn-guardar-prod').innerText = "Guardar Insumo";
+    document.getElementById('btn-guardar-prod').classList.replace('btn-editar', 'btn-primario');
+    document.getElementById('btn-cancelar-prod').classList.add('oculto');
 }
 
 window.cancelarEdicionProv = function() {

@@ -22,10 +22,10 @@
                 <button id="btn-cerrar-menu" style="background:none; border:none; color:white; font-size:1.5rem; cursor:pointer;" class="oculto">×</button>
             </h2>
             <nav>
-                <button class="btn-nav activo" data-modulo="productos">Catálogo Insumos</button>
+                <button class="btn-nav activo" data-modulo="productos">Catálogo Bodega</button>
+                <button class="btn-nav" data-modulo="produccion" style="border-left: 3px solid var(--naranja);">Cocina y Recetas</button>
                 <button class="btn-nav" data-modulo="proveedores">Proveedores y Pedidos</button>
                 <button class="btn-nav" data-modulo="bodega">Entradas y Salidas</button>
-                <!-- MENÚ DE ALERTAS -->
                 <button class="btn-nav" data-modulo="alertas" style="color: #fca5a5; font-weight: bold;">Alertas de Stock</button>
             </nav>
         </aside>
@@ -38,19 +38,17 @@
                 <h2>Alertas de Stock Mínimo</h2>
                 <div class="tarjeta" style="border-top: 4px solid var(--rojo-texto);">
                     <h3 style="margin-bottom: 15px; color: var(--rojo-texto);">Productos con inventario crítico</h3>
-                    <p style="font-size: 0.9em; color: gray; margin-bottom: 15px;">Los siguientes productos han alcanzado o bajado de su nivel mínimo permitido en bodega.</p>
-                    <div id="contenedor-alertas-panel" style="display: flex; flex-direction: column; gap: 10px;">
-                        <!-- Aquí aparecerán las alertas -->
-                    </div>
+                    <p style="font-size: 0.9em; color: gray; margin-bottom: 15px;">Los siguientes productos han alcanzado o bajado de su nivel mínimo permitido en bodega o producción.</p>
+                    <div id="contenedor-alertas-panel" style="display: flex; flex-direction: column; gap: 10px;"></div>
                 </div>
             </section>
 
-            <!-- PANEL: CATÁLOGO DE PRODUCTOS -->
+            <!-- PANEL: CATÁLOGO DE PRODUCTOS (MATERIA PRIMA) -->
             <section id="modulo-productos" class="modulo activo">
-                <h2>Catálogo de Productos e Insumos</h2>
+                <h2>Catálogo de Materia Prima (Bodega)</h2>
                 
                 <div class="tarjeta">
-                    <h3 id="titulo-formulario" style="margin-bottom: 15px;">Agregar Nuevo Insumo</h3>
+                    <h3 id="titulo-formulario" style="margin-bottom: 15px;">Agregar Nueva Materia Prima</h3>
                     <form id="form-insumo" class="formulario-horizontal">
                         <input type="hidden" id="insumo-id" value="">
                         
@@ -61,7 +59,7 @@
                             </div>
                             <div style="flex: 2; min-width: 200px;">
                                 <label style="font-size: 0.8em; color: gray;">Nombre:</label>
-                                <input type="text" id="insumo-nombre" placeholder="Nombre" required>
+                                <input type="text" id="insumo-nombre" placeholder="Nombre (Ej. Carne Molida)" required>
                             </div>
                             <div style="flex: 1; min-width: 100px;">
                                 <label style="font-size: 0.8em; color: gray;">Unidad:</label>
@@ -80,13 +78,10 @@
                             </div>
                         </div>
 
-                        <!-- NUEVA SECCIÓN: ASIGNACIÓN RÁPIDA -->
                         <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; padding-top: 15px; border-top: 1px dashed var(--borde);">
                             <div style="flex: 2; min-width: 200px;">
                                 <label style="font-size: 0.85em; color: var(--azul); font-weight: bold;">Proveedor (Asignación Rápida):</label>
-                                <select id="insumo-prov-rapido">
-                                    <option value="">Sin asignar por ahora</option>
-                                </select>
+                                <select id="insumo-prov-rapido"><option value="">Sin asignar por ahora</option></select>
                             </div>
                             <div style="flex: 1; min-width: 100px;">
                                 <label style="font-size: 0.85em; color: var(--azul); font-weight: bold;">Precio Unit. (Q):</label>
@@ -95,16 +90,15 @@
                         </div>
 
                         <div style="display: flex; gap: 10px; margin-top: 20px;">
-                            <button type="submit" id="btn-guardar" class="btn btn-primario" style="flex: 1;">Guardar Insumo</button>
+                            <button type="submit" id="btn-guardar" class="btn btn-primario" style="flex: 1;">Guardar Materia Prima</button>
                             <button type="button" id="btn-cancelar" class="btn btn-peligro oculto" onclick="cancelarEdicion()">Cancelar</button>
                         </div>
                     </form>
                 </div>
 
                 <div class="tarjeta">
-                    <h3 style="margin-bottom: 10px;">Lista de Insumos Registrados</h3>
+                    <h3 style="margin-bottom: 10px;">Inventario Actual de Bodega</h3>
                     <input type="text" id="buscador-insumos" placeholder="Buscar por código o nombre..." style="width: 100%; padding: 12px; margin-bottom: 15px;">
-                    
                     <div class="tabla-contenedor">
                         <table>
                             <thead>
@@ -118,10 +112,120 @@
                 </div>
             </section>
 
+            <!-- NUEVO PANEL: RECETAS Y PRODUCCIÓN -->
+            <section id="modulo-produccion" class="modulo">
+                <h2>Cocina, Preparación y Recetas</h2>
+                
+                <!-- PARTE 1: INSUMOS DE PRODUCCIÓN -->
+                <div class="contenedor-flex">
+                    <div class="tarjeta" style="flex: 1;">
+                        <h3 style="margin-bottom: 15px;">1. Crear Insumo Preparado</h3>
+                        <p style="font-size: 0.85em; color: gray; margin-bottom: 15px;">Crea los elementos que usas en tus platillos (Ej. Bolita de carne, Rodaja de Tomate, Gramos de Queso).</p>
+                        
+                        <form id="form-insumo-prod" class="formulario-horizontal">
+                            <input type="hidden" id="prod-id" value="">
+                            
+                            <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px;">
+                                <input type="text" id="prod-codigo" class="input-corto" placeholder="Cód (Opcional)">
+                                <input type="text" id="prod-nombre" placeholder="Nombre (Ej. Bolita de Carne)" required style="flex: 2;">
+                            </div>
+                            <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px;">
+                                <input type="text" id="prod-unidad" placeholder="Unidad (Ej. Unidades, Gramos)" required style="flex: 1;">
+                                <input type="number" id="prod-minimo" placeholder="Stock Mínimo" required style="flex: 1;">
+                                <input type="number" id="prod-inicial" placeholder="Stock Actual" value="0" required style="flex: 1;">
+                            </div>
+                            
+                            <div style="display: flex; gap: 10px;">
+                                <button type="submit" id="btn-guardar-prod" class="btn btn-primario" style="flex: 1;">Guardar Insumo</button>
+                                <button type="button" id="btn-cancelar-prod" class="btn btn-peligro oculto" onclick="cancelarEdicionProd()">Cancelar</button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <div class="tarjeta" style="flex: 1; border-top: 4px solid var(--azul);">
+                        <h3 style="margin-bottom: 15px;">2. Procesar (Transformar)</h3>
+                        <p style="font-size: 0.85em; color: gray; margin-bottom: 15px;">Descuenta materia prima de la bodega y conviértela en insumos preparados.</p>
+                        
+                        <form id="form-transformar" class="formulario-horizontal">
+                            <label style="font-size: 0.85em; font-weight: bold;">Materia Prima a descontar:</label>
+                            <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                                <select id="trans-origen" required style="flex: 2;"><option value="">De Bodega...</option></select>
+                                <input type="number" id="trans-origen-cant" step="0.01" placeholder="Cantidad" required style="flex: 1;">
+                            </div>
+                            
+                            <label style="font-size: 0.85em; font-weight: bold;">Se convierte en:</label>
+                            <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                                <select id="trans-destino" required style="flex: 2;"><option value="">A Producción...</option></select>
+                                <input type="number" id="trans-destino-cant" step="0.01" placeholder="Cantidad" required style="flex: 1;">
+                            </div>
+                            
+                            <button type="submit" class="btn btn-exito" style="width: 100%;">Procesar y Transferir</button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- INVENTARIO DE PRODUCCIÓN -->
+                <div class="tarjeta">
+                    <h3 style="margin-bottom: 10px;">Inventario de Cocina (Pre-procesados)</h3>
+                    <input type="text" id="buscador-produccion" placeholder="Buscar insumos preparados..." style="width: 100%; padding: 12px; margin-bottom: 15px;">
+                    <div class="tabla-contenedor">
+                        <table>
+                            <thead>
+                                <tr style="background-color: #f9fafb;">
+                                    <th>Código</th><th>Nombre</th><th>Unidad</th><th>Mínimo</th><th>Stock</th><th style="text-align: center;">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabla-produccion-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- PARTE 2: RECETAS FINALES -->
+                <div class="contenedor-flex">
+                    <div class="tarjeta" style="flex: 1; border-top: 4px solid var(--naranja);">
+                        <h3 style="margin-bottom: 15px;">3. Crear Platillo y Receta</h3>
+                        <form id="form-platillo" class="formulario-horizontal" style="margin-bottom: 20px;">
+                            <div style="display: flex; gap: 10px;">
+                                <input type="text" id="platillo-nombre" placeholder="Nombre (Ej. Hamburguesa Doble)" required style="flex: 2;">
+                                <button type="submit" class="btn btn-primario" style="flex: 1;">Crear Platillo</button>
+                            </div>
+                        </form>
+                        
+                        <form id="form-receta" class="formulario-horizontal" style="padding-top: 15px; border-top: 1px dashed #ccc;">
+                            <label style="font-size: 0.85em; font-weight: bold;">Armar Receta:</label>
+                            <select id="select-platillo-receta" required style="margin-bottom: 10px;"><option value="">Seleccione el platillo...</option></select>
+                            <select id="select-insumo-receta" required style="margin-bottom: 10px;">
+                                <!-- Aquí las opciones estarán agrupadas -->
+                            </select>
+                            <div style="display: flex; gap: 10px;">
+                                <input type="number" id="cantidad-receta" step="0.001" placeholder="Cantidad que usa" required style="flex: 1;">
+                                <button type="submit" class="btn btn-editar" style="flex: 1;">Añadir a Receta</button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <div class="tarjeta" style="flex: 1; border-top: 4px solid var(--rojo-texto); background-color: #fff5f5;">
+                        <h3 style="color: var(--rojo-texto);">4. Producir / Vender</h3>
+                        <p style="font-size: 0.85em; color: gray; margin-bottom: 15px;">Se descontarán automáticamente los ingredientes asignados a la receta elegida.</p>
+                        <form id="form-produccion" class="formulario-horizontal">
+                            <select id="select-platillo-produccion" required style="margin-bottom: 10px;"><option value="">¿Qué platillo se vendió o preparó?</option></select>
+                            <input type="number" id="cantidad-produccion" placeholder="Cantidad preparada/vendida" required style="margin-bottom: 15px;">
+                            <button type="submit" class="btn btn-peligro" style="width: 100%;">Procesar Venta / Producción</button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Catálogo de Recetas -->
+                <div class="tarjeta">
+                    <h3>Catálogo de Platillos y sus Recetas</h3>
+                    <div id="contenedor-catalogo-recetas" style="margin-top: 15px;"></div>
+                </div>
+
+            </section>
+
             <!-- PANEL: PROVEEDORES Y PEDIDOS -->
             <section id="modulo-proveedores" class="modulo">
                 <h2>Gestión de Proveedores y Pedidos</h2>
-                
                 <div class="contenedor-flex">
                     <div class="tarjeta">
                         <h3 id="titulo-form-proveedor" style="margin-bottom: 15px;">Agregar Nuevo Proveedor</h3>
@@ -130,25 +234,21 @@
                             <input type="text" id="prov-nombre" placeholder="Nombre Empresa" required>
                             <input type="text" id="prov-telefono" placeholder="Teléfono" required>
                             <div style="display: flex; gap: 10px;">
-                                <button type="submit" id="btn-guardar-prov" class="btn btn-primario" style="flex: 1;">Guardar Proveedor</button>
+                                <button type="submit" id="btn-guardar-prov" class="btn btn-primario" style="flex: 1;">Guardar</button>
                                 <button type="button" id="btn-cancelar-prov" class="btn btn-peligro oculto" onclick="cancelarEdicionProv()">Cancelar</button>
                             </div>
                         </form>
                     </div>
 
                     <div class="tarjeta" style="border-top: 4px solid var(--azul);">
-                        <h3 style="margin-bottom: 15px;">Asignar Productos al Proveedor</h3>
+                        <h3 style="margin-bottom: 15px;">Asignar Materia Prima al Proveedor</h3>
                         <form id="form-asignacion" class="formulario-horizontal">
                             <select id="select-prov-asignar" required><option value="">1. Seleccionar Proveedor...</option></select>
-                            
                             <label style="font-size: 0.9em; color: gray; margin-bottom: -10px;">2. Marcar productos a vincular:</label>
-                            
-                            <input type="text" id="buscador-asignacion" placeholder="Filtrar insumos a asignar..." style="display: none;">
-                            
+                            <input type="text" id="buscador-asignacion" placeholder="Filtrar insumos..." style="display: none;">
                             <div id="contenedor-checklist" class="checklist-contenedor">
                                 <p style="color: gray; font-size: 0.9em; text-align: center; margin-top: 10px;">Selecciona un proveedor primero.</p>
                             </div>
-                            
                             <button type="submit" class="btn btn-exito">Vincular Productos Seleccionados</button>
                         </form>
                     </div>
@@ -156,7 +256,6 @@
                 
                 <div class="tarjeta">
                     <h3>Catálogo por Proveedor (Editar Precios)</h3>
-                    <p style="font-size: 0.9em; color: gray; margin-bottom: 15px;">Aquí puedes editar el precio unitario de cada producto asignado.</p>
                     <div id="contenedor-catalogo-proveedores"></div>
                 </div>
 
@@ -165,14 +264,9 @@
                         <h3>Armar Pedido a Proveedor</h3>
                         <button class="btn btn-editar" onclick="imprimirReporteAutomatico()">Imprimir Faltantes</button>
                     </div>
-                    
-                    <select id="select-prov-pedido" style="margin-bottom: 10px;">
-                        <option value="">Seleccione a quién le va a pedir...</option>
-                    </select>
+                    <select id="select-prov-pedido" style="margin-bottom: 10px;"><option value="">Seleccione a quién le va a pedir...</option></select>
                     <input type="text" id="buscador-pedido" placeholder="Filtrar por código o nombre..." style="margin-bottom: 15px;">
-                    
                     <div id="lista-pedido-dinamica" style="margin-bottom: 20px;"></div>
-                    
                     <div id="gran-total-pedido" class="gran-total">Total: Q0.00</div>
                     <button id="btn-imprimir-pedido" class="btn btn-primario" style="width: 100%; display: none; margin-top: 15px;" onclick="imprimirPedidoManual()">Imprimir Orden de Compra</button>
                 </div>
@@ -182,37 +276,24 @@
             <section id="modulo-bodega" class="modulo">
                 <h2>Operaciones de Bodega Automáticas</h2>
                 <div class="contenedor-flex">
-                    
                     <div class="tarjeta" style="border-top: 4px solid var(--verde);">
                         <h3 style="margin-bottom: 15px;">Recepción (Ingreso en Lote)</h3>
-                        <p style="font-size: 0.85em; color: gray; margin-bottom: 15px;">Agrega las cantidades y luego presiona guardar al final.</p>
-                        <select id="select-prov-entrada" style="margin-bottom: 10px;">
-                            <option value="">Seleccione proveedor...</option>
-                        </select>
+                        <select id="select-prov-entrada" style="margin-bottom: 10px;"><option value="">Seleccione proveedor...</option></select>
                         <input type="text" id="buscador-entrada" placeholder="Filtrar producto a ingresar..." style="margin-bottom: 15px;">
-                        
                         <div id="lista-entrada-dinamica"></div>
                         <div id="gran-total-entrada" class="gran-total" style="margin-bottom: 15px;">Total: Q0.00</div>
-                        
-                        <button id="btn-procesar-entrada-lote" class="btn btn-exito" style="width: 100%; display: none;" onclick="procesarLote('entrada')">📥 Guardar Todo el Ingreso</button>
+                        <button id="btn-procesar-entrada-lote" class="btn btn-exito" style="width: 100%; display: none;" onclick="procesarLote('entrada')">Guardar Todo el Ingreso</button>
                     </div>
 
                     <div class="tarjeta" style="border-top: 4px solid var(--rojo-texto);">
                         <h3 style="margin-bottom: 15px;">Despacho / Merma (Salida en Lote)</h3>
-                        <p style="font-size: 0.85em; color: gray; margin-bottom: 15px;">Agrega las cantidades a descontar y presiona guardar.</p>
-                        <select id="select-prov-salida" style="margin-bottom: 10px;">
-                            <option value="todos">Mostrar TODOS los productos</option>
-                        </select>
+                        <select id="select-prov-salida" style="margin-bottom: 10px;"><option value="todos">Mostrar TODOS los productos</option></select>
                         <input type="text" id="buscador-salida" placeholder="Filtrar producto a descontar..." style="margin-bottom: 15px;">
-                        
                         <div id="lista-salida-dinamica"></div>
-                        
-                        <button id="btn-procesar-salida-lote" class="btn btn-peligro" style="width: 100%; margin-top: 15px; display: none;" onclick="procesarLote('salida')">📤 Guardar Todo el Despacho</button>
+                        <button id="btn-procesar-salida-lote" class="btn btn-peligro" style="width: 100%; margin-top: 15px; display: none;" onclick="procesarLote('salida')">Guardar Todo el Despacho</button>
                     </div>
-
                 </div>
             </section>
-
         </main>
     </div>
 
