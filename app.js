@@ -8,6 +8,8 @@ let asignacionesGlobal = [];
 let platillosGlobal = [];
 let recetasGlobal = []; 
 
+let platilloEnEdicionActual = null;
+
 async function cargarDatosMaestros() {
     try {
         const resInsumos = await db.from('insumos').select('*').order('id', { ascending: true });
@@ -17,16 +19,12 @@ async function cargarDatosMaestros() {
         const resRecetas = await db.from('platillo_insumo').select('*');
 
         insumosGlobal = resInsumos.data || [];
-        // Si hay insumos antiguos sin categoría, los asumimos como bodega
-        insumosGlobal.forEach(i => { if(!i.categoria) i.categoria = 'bodega'; });
-
         proveedoresGlobal = resProv.data || [];
         asignacionesGlobal = resAsig.data || [];
         platillosGlobal = resPlatillos.data || [];
         recetasGlobal = resRecetas.data || [];
 
-        // Limpiar cajas de busqueda
-        ['buscador-insumos', 'buscador-produccion', 'buscador-entrada', 'buscador-salida', 'buscador-pedido'].forEach(id => {
+        ['buscador-insumos', 'buscador-entrada', 'buscador-salida', 'buscador-pedido'].forEach(id => {
             if(document.getElementById(id)) document.getElementById(id).value = "";
         });
 
@@ -34,31 +32,30 @@ async function cargarDatosMaestros() {
         renderizarProveedores();
         renderizarCatalogoProveedores();
         renderizarManejoRecetas();
-        renderizarTransformacion();
         
         document.getElementById('select-prov-entrada').dispatchEvent(new Event('change'));
         document.getElementById('select-prov-salida').dispatchEvent(new Event('change'));
         document.getElementById('select-prov-pedido').dispatchEvent(new Event('change'));
         document.getElementById('select-prov-asignar').dispatchEvent(new Event('change'));
+        
+        if(platilloEnEdicionActual) {
+            actualizarTablaRecetaViva(platilloEnEdicionActual);
+        }
 
     } catch (error) {
         console.error("Error cargando datos:", error.message);
     }
 }
 
-// Función que renderiza ambas tablas de inventario (Bodega y Producción)
-function renderizarInsumos(filtroBodega = '', filtroProd = '') {
+function renderizarInsumos(filtroBodega = '') {
     const tbodyBodega = document.getElementById('tabla-insumos-body');
-    const tbodyProd = document.getElementById('tabla-produccion-body');
     const contenedorAlertas = document.getElementById('contenedor-alertas-panel');
     let contadorAlertas = 0;
 
-    if (tbodyBodega) tbodyBodega.innerHTML = '';
-    if (tbodyProd) tbodyProd.innerHTML = '';
-    if (filtroBodega === '' && filtroProd === '' && contenedorAlertas) contenedorAlertas.innerHTML = ''; 
+    if(tbodyBodega) tbodyBodega.innerHTML = '';
+    if (filtroBodega === '' && contenedorAlertas) contenedorAlertas.innerHTML = ''; 
 
     const textoBodega = filtroBodega.toLowerCase();
-    const textoProd = filtroProd.toLowerCase();
 
     insumosGlobal.forEach(insumo => {
         const stockActual = parseFloat(insumo.cantidad_actual);
@@ -67,12 +64,11 @@ function renderizarInsumos(filtroBodega = '', filtroProd = '') {
         
         if (stockActual <= stockMinimo) {
             colorStock = 'color: var(--rojo-texto); font-weight: bold;';
-            if (filtroBodega === '' && filtroProd === '' && contenedorAlertas) {
+            if (filtroBodega === '' && contenedorAlertas) {
                 contadorAlertas++;
-                const procedencia = insumo.categoria === 'preparado' ? '(Producción)' : '(Bodega)';
                 contenedorAlertas.innerHTML += `
                     <div style="background: white; padding: 12px; border-radius: 4px; border: 1px solid var(--borde); display: flex; justify-content: space-between;">
-                        <span><strong>${insumo.codigo ? `[${insumo.codigo}] ` : ''}${insumo.nombre} ${procedencia}</strong></span>
+                        <span><strong>${insumo.codigo ? `[${insumo.codigo}] ` : ''}${insumo.nombre}</strong></span>
                         <span style="color: var(--rojo-texto); font-weight: bold;">Quedan: ${stockActual} ${insumo.unidad_medida}</span>
                     </div>
                 `;
@@ -81,126 +77,143 @@ function renderizarInsumos(filtroBodega = '', filtroProd = '') {
 
         const nombre = insumo.nombre ? insumo.nombre.toLowerCase() : '';
         const codigo = insumo.codigo ? insumo.codigo.toLowerCase() : '';
-        const filaHtml = `
-            <tr style="border-bottom: 1px solid var(--borde);">
-                <td style="padding: 10px; font-weight: bold; color: var(--azul);">${insumo.codigo || '---'}</td>
-                <td style="padding: 10px;">${insumo.nombre}</td>
-                <td style="padding: 10px;">${insumo.unidad_medida}</td>
-                <td style="padding: 10px;">${insumo.stock_minimo}</td>
-                <td style="padding: 10px;"><span style="${colorStock}">${insumo.cantidad_actual}</span></td>
-                <td style="padding: 10px; text-align: center;">
-                    <button class="${insumo.categoria === 'preparado' ? 'btn-editar-prod' : 'btn-editar-insumo'}" data-id="${insumo.id}" style="background-color: var(--naranja); color: white; padding: 6px 12px; margin-right: 5px; margin-bottom: 5px; cursor: pointer; border: none; border-radius: 4px;">Editar</button>
-                    <button class="btn btn-peligro btn-eliminar" data-id="${insumo.id}" style="padding: 6px 12px; cursor: pointer; border: none; border-radius: 4px;">Borrar</button>
-                </td>
-            </tr>
-        `;
-
-        if (insumo.categoria === 'preparado') {
-            if (nombre.includes(textoProd) || codigo.includes(textoProd)) {
-                if(tbodyProd) tbodyProd.innerHTML += filaHtml;
-            }
-        } else {
-            if (nombre.includes(textoBodega) || codigo.includes(textoBodega)) {
-                if(tbodyBodega) tbodyBodega.innerHTML += filaHtml;
+        
+        if (nombre.includes(textoBodega) || codigo.includes(textoBodega)) {
+            if(tbodyBodega) {
+                tbodyBodega.innerHTML += `
+                    <tr style="border-bottom: 1px solid var(--borde);">
+                        <td style="padding: 10px; font-weight: bold; color: var(--azul);">${insumo.codigo || '---'}</td>
+                        <td style="padding: 10px;">${insumo.nombre}</td>
+                        <td style="padding: 10px;">${insumo.unidad_medida}</td>
+                        <td style="padding: 10px;">${insumo.stock_minimo}</td>
+                        <td style="padding: 10px;"><span style="${colorStock}">${insumo.cantidad_actual}</span></td>
+                        <td style="padding: 10px; text-align: center;">
+                            <button class="btn btn-editar-insumo" data-id="${insumo.id}" style="background-color: var(--naranja); color: white; padding: 6px 12px; margin-right: 5px; margin-bottom: 5px; cursor: pointer; border: none; border-radius: 4px;">Editar</button>
+                            <button class="btn btn-peligro btn-eliminar" data-id="${insumo.id}" style="padding: 6px 12px; cursor: pointer; border: none; border-radius: 4px;">Borrar</button>
+                        </td>
+                    </tr>
+                `;
             }
         }
     });
 
-    if (filtroBodega === '' && filtroProd === '' && contenedorAlertas && contadorAlertas === 0) {
+    if (filtroBodega === '' && contenedorAlertas && contadorAlertas === 0) {
         contenedorAlertas.innerHTML = '<p style="color: var(--verde); font-weight: bold;">Todo el inventario está en niveles óptimos.</p>';
     }
 }
 
-// Llena los selects del panel de Transformación
-function renderizarTransformacion() {
-    const selOrigen = document.getElementById('trans-origen');
-    const selDestino = document.getElementById('trans-destino');
-
-    if(!selOrigen || !selDestino) return;
-
-    selOrigen.innerHTML = '<option value="">De Bodega (Materia Prima)...</option>';
-    selDestino.innerHTML = '<option value="">A Producción (Preparados)...</option>';
-
-    insumosGlobal.forEach(i => {
-        const nombre = i.codigo ? `[${i.codigo}] ${i.nombre}` : i.nombre;
-        if(i.categoria === 'preparado') {
-            selDestino.innerHTML += `<option value="${i.id}">${nombre} (En: ${i.unidad_medida})</option>`;
-        } else {
-            selOrigen.innerHTML += `<option value="${i.id}">${nombre} (En: ${i.unidad_medida})</option>`;
-        }
-    });
-}
-
+// === CREADOR DE RECETAS ENFOCADO A COSTOS ===
 function renderizarManejoRecetas() {
-    const selPlatilloReceta = document.getElementById('select-platillo-receta');
-    const selPlatilloProd = document.getElementById('select-platillo-produccion');
     const selInsumoReceta = document.getElementById('select-insumo-receta');
     const contenedorCatalogo = document.getElementById('contenedor-catalogo-recetas');
 
-    if(selPlatilloReceta) selPlatilloReceta.innerHTML = '<option value="">Seleccione un platillo...</option>';
-    if(selPlatilloProd) selPlatilloProd.innerHTML = '<option value="">¿Qué platillo se preparó?</option>';
-    
-    platillosGlobal.forEach(p => {
-        const opt = `<option value="${p.id}">${p.nombre}</option>`;
-        if(selPlatilloReceta) selPlatilloReceta.innerHTML += opt;
-        if(selPlatilloProd) selPlatilloProd.innerHTML += opt;
-    });
-
     if(selInsumoReceta) {
-        selInsumoReceta.innerHTML = '<option value="">Seleccione el ingrediente...</option>';
-        
-        let htmlProd = '<optgroup label="Insumos de Producción (Recomendado)">';
-        let htmlBodega = '<optgroup label="Materia Prima Directa (Bodega)">';
-
+        selInsumoReceta.innerHTML = '<option value="">Seleccione Insumo desde su Inventario...</option>';
         insumosGlobal.forEach(i => {
             const nombre = i.codigo ? `[${i.codigo}] ${i.nombre}` : i.nombre;
-            const option = `<option value="${i.id}">${nombre} (Medido en: ${i.unidad_medida})</option>`;
-            if (i.categoria === 'preparado') {
-                htmlProd += option;
-            } else {
-                htmlBodega += option;
-            }
+            selInsumoReceta.innerHTML += `<option value="${i.id}">${nombre}</option>`;
         });
-        htmlProd += '</optgroup>';
-        htmlBodega += '</optgroup>';
-
-        selInsumoReceta.innerHTML += htmlProd + htmlBodega;
     }
 
     if(contenedorCatalogo) {
         contenedorCatalogo.innerHTML = '';
         platillosGlobal.forEach(platillo => {
-            const susIngredientes = recetasGlobal.filter(r => r.id_platillo == platillo.id);
-            let htmlIng = '';
-            
-            if (susIngredientes.length === 0) {
-                htmlIng = '<p style="color: gray; font-size: 0.85em;">Sin receta armada.</p>';
-            } else {
-                htmlIng = '<ul style="list-style:none; padding:0;">';
-                susIngredientes.forEach(ing => {
-                    const insumoReal = insumosGlobal.find(i => i.id == ing.id_insumo);
-                    if(insumoReal) {
-                        htmlIng += `
-                            <li style="display:flex; justify-content:space-between; border-bottom: 1px dashed #ccc; padding: 5px 0;">
-                                <span>- ${ing.cantidad_usada} ${insumoReal.unidad_medida} de ${insumoReal.nombre}</span>
-                                <button class="btn btn-peligro btn-quitar-receta" data-id="${ing.id}" style="padding: 2px 6px; font-size: 0.75em;">X</button>
-                            </li>`;
-                    }
-                });
-                htmlIng += '</ul>';
-            }
-
             contenedorCatalogo.innerHTML += `
                 <div style="border: 1px solid var(--borde); padding: 15px; border-radius: 5px; margin-bottom: 15px; background: #f9fafb;">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                        <h4 style="color: var(--naranja); margin:0;">${platillo.nombre}</h4>
-                        <button class="btn btn-peligro btn-eliminar-platillo" data-id="${platillo.id}" style="padding: 4px 8px; border:none; border-radius:4px; font-size:0.8em;">Borrar Platillo</button>
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap: wrap; gap: 10px;">
+                        <div>
+                            <h4 style="color: var(--azul); margin:0; font-size: 1.2rem;">${platillo.nombre}</h4>
+                            <span style="font-size: 0.85em; color: gray;">ID: ${platillo.codigo || 'Sin código'} | Categoría: ${platillo.categoria || 'N/A'}</span>
+                        </div>
+                        <div>
+                            <button class="btn btn-primario btn-imprimir-ficha" data-id="${platillo.id}" style="padding: 6px 12px; border:none; border-radius:4px; font-size:0.85em; margin-right: 5px;">🖨️ Generar Ficha de Costos</button>
+                            <button class="btn btn-editar-platillo" data-id="${platillo.id}" style="padding: 6px 12px; border:none; border-radius:4px; font-size:0.85em; background-color: var(--naranja); color: white; margin-right: 5px;">Editar Costos e Ingredientes</button>
+                            <button class="btn btn-peligro btn-eliminar-platillo" data-id="${platillo.id}" style="padding: 6px 12px; border:none; border-radius:4px; font-size:0.85em;">Borrar</button>
+                        </div>
                     </div>
-                    ${htmlIng}
                 </div>
             `;
         });
     }
+}
+
+// Al seleccionar un insumo, muestra automáticamente su precio de compra para ayudar a la conversión
+document.addEventListener('DOMContentLoaded', () => {
+    const selInsumo = document.getElementById('select-insumo-receta');
+    if(selInsumo) {
+        selInsumo.addEventListener('change', (e) => {
+            const idIns = e.target.value;
+            const display = document.getElementById('display-precio-insumo');
+            const eqInput = document.getElementById('receta-equivalencia');
+            const ayudaTexto = document.getElementById('ayuda-equivalencia');
+            
+            if(!idIns) {
+                display.innerText = "Q0.00 / Unidad";
+                ayudaTexto.innerText = "Ej. Si compras 1 Galón, ingresa 3785 (porque hay 3785ml en 1 galón).";
+                return;
+            }
+            
+            const insumo = insumosGlobal.find(i => i.id == idIns);
+            const asig = asignacionesGlobal.find(a => a.id_insumo == idIns);
+            const precio = asig ? parseFloat(asig.precio).toFixed(2) : "0.00";
+            
+            display.innerHTML = `Compras en: <b>[${insumo.unidad_medida}]</b> a <b>Q${precio}</b>`;
+            eqInput.value = 1; // Por defecto es 1 a 1
+            ayudaTexto.innerText = `¿Cuántas de las unidades seleccionadas a la izquierda caben dentro de 1 ${insumo.unidad_medida}?`;
+        });
+    }
+});
+
+function actualizarTablaRecetaViva(idPlatillo) {
+    const tbody = document.getElementById('tabla-receta-viva');
+    if(!tbody) return;
+    tbody.innerHTML = '';
+
+    const ingredientesReceta = recetasGlobal.filter(r => r.id_platillo == idPlatillo);
+    if(ingredientesReceta.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:gray;">No has agregado ingredientes para calcular costos.</td></tr>';
+        return;
+    }
+
+    let costoParcialPlato = 0;
+
+    ingredientesReceta.forEach(ing => {
+        const insumo = insumosGlobal.find(i => i.id == ing.id_insumo);
+        if (insumo) {
+            // Buscamos precio para cálculo matemático
+            const asig = asignacionesGlobal.find(a => a.id_insumo == insumo.id);
+            const precioCompra = asig ? parseFloat(asig.precio) : 0;
+            const equivalencia = parseFloat(ing.equivalencia) || 1;
+            
+            // LA MATEMÁTICA PURA
+            const costoUnitarioConvertido = precioCompra / equivalencia;
+            const cantidadUsada = parseFloat(ing.cantidad_usada);
+            const costoTotalIngrediente = costoUnitarioConvertido * cantidadUsada;
+            
+            costoParcialPlato += costoTotalIngrediente;
+
+            tbody.innerHTML += `
+                <tr>
+                    <td>${insumo.nombre}</td>
+                    <td style="text-align:center;"><b>${cantidadUsada}</b></td>
+                    <td style="text-align:center;">${ing.unidad_receta}</td>
+                    <td style="text-align:right;"><b>Q${costoTotalIngrediente.toFixed(2)}</b></td>
+                    <td style="text-align:center;">
+                        <button class="btn btn-peligro btn-quitar-receta" data-id="${ing.id}" style="padding: 2px 6px; font-size: 0.75em;">X</button>
+                    </td>
+                </tr>
+            `;
+        }
+    });
+
+    // Añadir una fila de total
+    tbody.innerHTML += `
+        <tr style="background-color: #fef3c7;">
+            <td colspan="3" style="text-align:right; font-weight:bold;">Subtotal de Costo (Materia Prima):</td>
+            <td style="text-align:right; font-weight:bold; color:var(--rojo-texto);">Q${costoParcialPlato.toFixed(2)}</td>
+            <td></td>
+        </tr>
+    `;
 }
 
 function renderizarProveedores() {
@@ -212,29 +225,19 @@ function renderizarProveedores() {
         if(!select) return;
         const placeholder = id === 'select-prov-asignar' ? '1. Seleccionar Proveedor...' : (id === 'select-prov-entrada' ? 'Seleccione proveedor...' : 'Seleccione a quién le va a pedir...');
         select.innerHTML = `<option value="">${placeholder}</option>`;
-        
-        if (id === 'select-prov-entrada') {
-            select.innerHTML += '<option value="todos">Mostrar TODOS los productos</option>';
-        }
-        
-        proveedoresGlobal.forEach(prov => {
-            select.innerHTML += `<option value="${prov.id}">${prov.nombre}</option>`;
-        });
+        if (id === 'select-prov-entrada') select.innerHTML += '<option value="todos">Mostrar TODOS los productos</option>';
+        proveedoresGlobal.forEach(prov => { select.innerHTML += `<option value="${prov.id}">${prov.nombre}</option>`; });
     });
 
     if (selectProvRapido) {
         selectProvRapido.innerHTML = '<option value="">Sin asignar por ahora</option>';
-        proveedoresGlobal.forEach(prov => {
-            selectProvRapido.innerHTML += `<option value="${prov.id}">${prov.nombre}</option>`;
-        });
+        proveedoresGlobal.forEach(prov => { selectProvRapido.innerHTML += `<option value="${prov.id}">${prov.nombre}</option>`; });
     }
 
     const selectSalida = document.getElementById('select-prov-salida');
     if(selectSalida) {
         selectSalida.innerHTML = '<option value="todos">Mostrar TODOS los productos</option>';
-        proveedoresGlobal.forEach(prov => {
-            selectSalida.innerHTML += `<option value="${prov.id}">Filtrar por: ${prov.nombre}</option>`;
-        });
+        proveedoresGlobal.forEach(prov => { selectSalida.innerHTML += `<option value="${prov.id}">Filtrar por: ${prov.nombre}</option>`; });
     }
 }
 
@@ -256,7 +259,6 @@ function renderizarCatalogoProveedores() {
                 if(insumoReal) {
                     const nombreMostrar = insumoReal.codigo ? `[${insumoReal.codigo}] ${insumoReal.nombre}` : insumoReal.nombre;
                     const precio = asig.precio ? parseFloat(asig.precio).toFixed(2) : "0.00";
-                    
                     htmlProductos += `
                         <li style="display: flex; justify-content: space-between; align-items: center; padding: 5px 0; border-bottom: 1px dashed #ccc; flex-wrap: wrap; gap: 5px;">
                             <span>📦 ${nombreMostrar} - <strong>Q${precio}</strong></span>
@@ -302,7 +304,6 @@ function calcularTotales() {
     });
 }
 
-// Filtra para que en Entradas solo salgan los de 'Bodega' (no compras bolitas de carne)
 function generarListaInteractiva(idProv, contenedorId, tipo, filtro = '') {
     const contenedor = document.getElementById(contenedorId);
     if(!contenedor) return;
@@ -318,8 +319,7 @@ function generarListaInteractiva(idProv, contenedorId, tipo, filtro = '') {
 
     let productos = [];
     if (idProv === 'todos') {
-        // En compras y pedidos libres, solo muestra la materia prima (Bodega)
-        productos = insumosGlobal.filter(i => i.categoria !== 'preparado').map(i => ({ insumo: i, precio: 0 }));
+        productos = insumosGlobal.map(i => ({ insumo: i, precio: 0 }));
     } else {
         const asignaciones = asignacionesGlobal.filter(a => a.id_proveedor == idProv);
         productos = asignaciones.map(a => {
@@ -379,7 +379,6 @@ window.procesarLote = async function(tipo) {
             const id = parseInt(input.getAttribute('data-id'), 10);
             const stockActual = parseFloat(input.getAttribute('data-stock'));
             const nuevoStock = tipo === 'entrada' ? stockActual + cantidadModificar : stockActual - cantidadModificar;
-            
             promesas.push(db.from('insumos').update({ cantidad_actual: nuevoStock }).eq('id', id));
             itemsModificados++;
         }
@@ -394,12 +393,116 @@ window.procesarLote = async function(tipo) {
         const resultados = await Promise.all(promesas);
         const errores = resultados.filter(r => r.error);
         if (errores.length > 0) throw new Error("Algunos productos no se pudieron actualizar.");
-
         cargarDatosMaestros();
         alert(`Éxito! Se guardaron ${itemsModificados} movimientos en bodega.`);
-    } catch (error) {
-        alert(`Error al guardar el lote: ${error.message}`);
+    } catch (error) { alert(`Error al guardar el lote: ${error.message}`); }
+}
+
+// === GENERADOR ESTRICTO DE LA FICHA TÉCNICA DE COSTOS ===
+window.imprimirFichaTecnica = function(idPlatillo) {
+    const platillo = platillosGlobal.find(p => p.id == idPlatillo);
+    if (!platillo) return;
+
+    let costoTotalMateriaPrima = 0;
+    let filasIngredientes = '';
+
+    const ingredientesReceta = recetasGlobal.filter(r => r.id_platillo == idPlatillo);
+    
+    if(ingredientesReceta.length === 0) {
+        alert("El platillo no tiene ingredientes. No se puede calcular el costo.");
+        return;
     }
+
+    ingredientesReceta.forEach(ing => {
+        const insumo = insumosGlobal.find(i => i.id == ing.id_insumo);
+        if (insumo) {
+            const asig = asignacionesGlobal.find(a => a.id_insumo == insumo.id);
+            const precioCompra = asig ? parseFloat(asig.precio) : 0;
+            const equivalencia = parseFloat(ing.equivalencia) || 1;
+            
+            // CONVERSIÓN PURA DE COSTOS
+            let costoUnitarioConvertido = precioCompra / equivalencia;
+            let cantidadUsada = parseFloat(ing.cantidad_usada);
+            let costoTotalIngrediente = cantidadUsada * costoUnitarioConvertido;
+            
+            costoTotalMateriaPrima += costoTotalIngrediente;
+
+            filasIngredientes += `
+                <tr>
+                    <td style="padding: 5px; border: 1px solid #000;">${insumo.nombre}</td>
+                    <td style="padding: 5px; border: 1px solid #000; text-align:center;">${ing.unidad_receta}</td>
+                    <td style="padding: 5px; border: 1px solid #000; text-align:center;">${cantidadUsada}</td>
+                    <td style="padding: 5px; border: 1px solid #000; text-align:right;">Q ${costoUnitarioConvertido.toFixed(2)}</td>
+                    <td style="padding: 5px; border: 1px solid #000; text-align:right;">Q ${costoTotalIngrediente.toFixed(2)}</td>
+                </tr>
+            `;
+        }
+    });
+
+    let margenPorcentaje = parseFloat(platillo.margen_error) || 0;
+    let margenMonto = costoTotalMateriaPrima * (margenPorcentaje / 100);
+    let costoTotalPreparacion = costoTotalMateriaPrima + margenMonto;
+    let porciones = parseFloat(platillo.porciones) || 1;
+    let costoPorPorcion = costoTotalPreparacion / porciones;
+    let porcentajeMeta = parseFloat(platillo.porcentaje_costo_establecido) || 30;
+    let precioPotencial = costoPorPorcion / (porcentajeMeta / 100);
+
+    const htmlFicha = `
+        <html><head><title>Análisis de Costo - ${platillo.nombre}</title>
+        <style>
+            body { font-family: Arial, sans-serif; font-size: 13px; margin: 30px; color: #333; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 25px; }
+            .bg-dark-blue { background-color: #1e3a8a; color: white; font-weight: bold; text-align: center; padding: 10px; }
+            .bg-light-blue { background-color: #bfdbfe; color: #1e3a8a; font-weight: bold; text-align: center; padding: 8px; }
+            .bg-header-col { background-color: #1e3a8a; color: white; font-weight: bold; text-align: center; padding: 8px; border: 1px solid #000; }
+            td { padding: 6px 10px; border: 1px solid #000; }
+            .label-td { font-weight: bold; width: 40%; background-color: #f3f4f6; }
+            .value-td { text-align: center; }
+            .resumen-label { text-align: right; font-weight: bold; background-color: #fef3c7; }
+            .highlight-yellow { background-color: #fef08a; font-weight: bold; }
+        </style>
+        </head><body>
+            
+            <table>
+                <tr><td colspan="2" class="bg-dark-blue" style="font-size: 18px; text-transform: uppercase;">RECETA ESTÁNDAR Y COSTO DE PLATILLO</td></tr>
+                <tr><td colspan="2" class="bg-light-blue">DATOS DEL PLATILLO</td></tr>
+                <tr><td class="label-td">Nombre del Platillo</td><td class="value-td">${platillo.nombre}</td></tr>
+                <tr><td class="label-td">Codigo o ID</td><td class="value-td">${platillo.codigo || 'N/A'}</td></tr>
+                <tr><td class="label-td">Categoría</td><td class="value-td">${platillo.categoria || 'N/A'}</td></tr>
+                <tr><td class="label-td">Porciones Resultantes de la Receta</td><td class="value-td">${porciones}</td></tr>
+            </table>
+
+            <table>
+                <tr><td colspan="5" class="bg-light-blue">MATERIA PRIMA Y COSTO DIRECTO</td></tr>
+                <tr>
+                    <td class="bg-header-col" style="width: 40%;">Ingrediente</td>
+                    <td class="bg-header-col">Unidad M.</td>
+                    <td class="bg-header-col">Cantidad</td>
+                    <td class="bg-header-col">Costo Convertido</td>
+                    <td class="bg-header-col">Costo Total</td>
+                </tr>
+                ${filasIngredientes}
+            </table>
+
+            <table style="width: 70%; margin-left: auto;">
+                <tr><td colspan="2" class="bg-light-blue">RESUMEN FINANCIERO Y RENTABILIDAD</td></tr>
+                <tr><td class="resumen-label">Costo TOTAL de Materia prima</td><td style="text-align:right; width:30%;">Q ${costoTotalMateriaPrima.toFixed(2)}</td></tr>
+                <tr><td class="resumen-label">Margen de error o variación (${margenPorcentaje}%)</td><td style="text-align:right;">Q ${margenMonto.toFixed(2)}</td></tr>
+                <tr><td class="resumen-label">Costo Total de la preparación</td><td style="text-align:right;">Q ${costoTotalPreparacion.toFixed(2)}</td></tr>
+                <tr><td class="resumen-label">Costo Real por Porción</td><td class="highlight-yellow" style="text-align:right;">Q ${costoPorPorcion.toFixed(2)}</td></tr>
+                <tr><td class="resumen-label">% Costo Meta (Food Cost)</td><td style="text-align:right;">${porcentajeMeta}%</td></tr>
+                <tr><td class="resumen-label">Precio de Venta Sugerido</td><td style="text-align:right; font-size: 1.1em; color: green; font-weight: bold;">Q ${precioPotencial.toFixed(2)}</td></tr>
+            </table>
+            
+            <div style="text-align:center; margin-top: 30px;">
+                <button onclick="window.print()" style="padding: 12px 24px; background-color: #1e3a8a; color: white; border: none; border-radius: 5px; font-size: 16px; cursor: pointer;">🖨️ Guardar Ficha como PDF / Imprimir</button>
+            </div>
+        </body></html>
+    `;
+
+    const ventanaFicha = window.open('', '_blank', 'width=900,height=700');
+    ventanaFicha.document.write(htmlFicha);
+    ventanaFicha.document.close();
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -412,12 +515,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btnToggleMenu) btnToggleMenu.addEventListener('click', () => { sidebar.classList.add('abierta'); if(window.innerWidth <= 768) btnCerrarMenu.classList.remove('oculto'); });
     if (btnCerrarMenu) btnCerrarMenu.addEventListener('click', () => sidebar.classList.remove('abierta'));
 
-    // Buscadores Separados
     const buscadorBodega = document.getElementById('buscador-insumos');
     if (buscadorBodega) buscadorBodega.addEventListener('input', (e) => renderizarInsumos(e.target.value, ''));
-
-    const buscadorProd = document.getElementById('buscador-produccion');
-    if (buscadorProd) buscadorProd.addEventListener('input', (e) => renderizarInsumos('', e.target.value));
 
     const buscadorAsig = document.getElementById('buscador-asignacion');
     if(buscadorAsig) {
@@ -468,7 +567,75 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // --- CREAR INSUMO BODEGA ---
+    // --- FORMULARIO PERFIL PLATILLO (COSTOS) ---
+    document.getElementById('form-platillo').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const idEdicion = document.getElementById('platillo-id').value;
+        const dataPlatillo = {
+            nombre: document.getElementById('platillo-nombre').value,
+            codigo: document.getElementById('platillo-codigo').value,
+            categoria: document.getElementById('platillo-categoria').value,
+            porciones: parseFloat(document.getElementById('platillo-porciones').value) || 1,
+            margen_error: parseFloat(document.getElementById('platillo-margen').value) || 10,
+            porcentaje_costo_establecido: parseFloat(document.getElementById('platillo-porcentaje').value) || 30
+        };
+
+        try {
+            let platilloGuardadoId = idEdicion;
+            if(idEdicion === "") {
+                const { data, error } = await db.from('platillos').insert([dataPlatillo]).select();
+                if (error) throw error;
+                platilloGuardadoId = data[0].id;
+                alert("Datos guardados. Ahora baja al Panel 2 para armar la receta exacta.");
+            } else {
+                const { error } = await db.from('platillos').update(dataPlatillo).eq('id', parseInt(idEdicion, 10));
+                if (error) throw error;
+                alert("Costos generales actualizados.");
+            }
+            
+            await cargarDatosMaestros();
+            
+            // Modo "Editando Receta Viva"
+            const botonFantasma = document.createElement('button');
+            botonFantasma.className = 'btn-editar-platillo';
+            botonFantasma.setAttribute('data-id', platilloGuardadoId);
+            document.body.appendChild(botonFantasma);
+            botonFantasma.click();
+            botonFantasma.remove();
+            
+        } catch (error) { alert(`Error al guardar platillo: ${error.message}`); }
+    });
+
+    // --- AÑADIR INGREDIENTE CON CONVERSIÓN ---
+    document.getElementById('form-receta').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const idPlatillo = document.getElementById('receta-platillo-id').value;
+        if(!idPlatillo) {
+            alert("Primero guarda los datos generales del platillo arriba.");
+            return;
+        }
+
+        const idInsumo = document.getElementById('select-insumo-receta').value;
+        const cant = parseFloat(document.getElementById('cantidad-receta').value);
+        const uniReceta = document.getElementById('receta-unidad-medida').value;
+        const eq = parseFloat(document.getElementById('receta-equivalencia').value) || 1;
+        
+        try {
+            const { error } = await db.from('platillo_insumo').insert([{ 
+                id_platillo: idPlatillo, 
+                id_insumo: idInsumo, 
+                cantidad_usada: cant,
+                unidad_receta: uniReceta,
+                equivalencia: eq
+            }]);
+            if (error) throw error;
+            
+            document.getElementById('cantidad-receta').value = "";
+            await cargarDatosMaestros();
+            
+        } catch (error) { alert("Error al asignar ingrediente (Tal vez ya estaba asignado en este platillo)."); }
+    });
+
     document.getElementById('form-insumo').addEventListener('submit', async (e) => {
         e.preventDefault();
         const idEdicion = document.getElementById('insumo-id').value;
@@ -512,133 +679,6 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (error) { alert(`Error al guardar: ${error.message}`); }
     });
 
-    // --- CREAR INSUMO PRODUCCIÓN ---
-    const formInsumoProd = document.getElementById('form-insumo-prod');
-    if(formInsumoProd) {
-        formInsumoProd.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const idEdicion = document.getElementById('prod-id').value;
-            const codigo = document.getElementById('prod-codigo').value; 
-            const nombre = document.getElementById('prod-nombre').value;
-            const unidad = document.getElementById('prod-unidad').value;
-            const stockMinimo = parseFloat(document.getElementById('prod-minimo').value) || 0;
-            const stockActual = parseFloat(document.getElementById('prod-inicial').value) || 0;
-
-            try {
-                if (idEdicion === "") {
-                    const { error } = await db.from('insumos')
-                        .insert([{ codigo, nombre, unidad_medida: unidad, stock_minimo: stockMinimo, cantidad_actual: stockActual, categoria: 'preparado' }]);
-                    if (error) throw error;
-                } else {
-                    const { error } = await db.from('insumos')
-                        .update({ codigo, nombre, unidad_medida: unidad, stock_minimo: stockMinimo, cantidad_actual: stockActual })
-                        .eq('id', parseInt(idEdicion, 10));
-                    if (error) throw error;
-                }
-                cancelarEdicionProd();
-                cargarDatosMaestros(); 
-                alert("Insumo de producción guardado exitosamente.");
-            } catch (error) { alert(`Error al guardar: ${error.message}`); }
-        });
-    }
-
-    // --- PROCESAR (TRANSFORMAR BODEGA -> PRODUCCIÓN) ---
-    const formTransformar = document.getElementById('form-transformar');
-    if(formTransformar) {
-        formTransformar.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const idOrigen = document.getElementById('trans-origen').value;
-            const cantOrigen = parseFloat(document.getElementById('trans-origen-cant').value);
-            const idDestino = document.getElementById('trans-destino').value;
-            const cantDestino = parseFloat(document.getElementById('trans-destino-cant').value);
-
-            const insumoOrigen = insumosGlobal.find(i => i.id == idOrigen);
-            const insumoDestino = insumosGlobal.find(i => i.id == idDestino);
-
-            if (parseFloat(insumoOrigen.cantidad_actual) < cantOrigen) {
-                alert(`No hay suficiente materia prima. Tienes ${insumoOrigen.cantidad_actual} en bodega.`);
-                return;
-            }
-
-            try {
-                // Restar a bodega
-                const nuevoOrigen = parseFloat(insumoOrigen.cantidad_actual) - cantOrigen;
-                // Sumar a producción
-                const nuevoDestino = parseFloat(insumoDestino.cantidad_actual) + cantDestino;
-
-                await db.from('insumos').update({ cantidad_actual: nuevoOrigen }).eq('id', idOrigen);
-                await db.from('insumos').update({ cantidad_actual: nuevoDestino }).eq('id', idDestino);
-
-                document.getElementById('form-transformar').reset();
-                cargarDatosMaestros();
-                alert(`Transformación exitosa. Se descontaron ${cantOrigen} ${insumoOrigen.unidad_medida} y se crearon ${cantDestino} ${insumoDestino.unidad_medida}.`);
-            } catch (error) {
-                alert(`Error en la transformación: ${error.message}`);
-            }
-        });
-    }
-
-    // --- FORMULARIOS DE RECETAS ---
-    document.getElementById('form-platillo').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const nombre = document.getElementById('platillo-nombre').value;
-        try {
-            const { error } = await db.from('platillos').insert([{ nombre }]);
-            if (error) throw error;
-            document.getElementById('form-platillo').reset();
-            cargarDatosMaestros();
-            alert("Platillo creado exitosamente.");
-        } catch (error) { alert(`Error al crear platillo: ${error.message}`); }
-    });
-
-    document.getElementById('form-receta').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const idPlatillo = document.getElementById('select-platillo-receta').value;
-        const idInsumo = document.getElementById('select-insumo-receta').value;
-        const cant = parseFloat(document.getElementById('cantidad-receta').value);
-        
-        try {
-            const { error } = await db.from('platillo_insumo').insert([{ id_platillo: idPlatillo, id_insumo: idInsumo, cantidad_usada: cant }]);
-            if (error) throw error;
-            document.getElementById('form-receta').reset();
-            cargarDatosMaestros();
-        } catch (error) { alert("Error al asignar ingrediente (Tal vez ya estaba asignado)."); }
-    });
-
-    document.getElementById('form-produccion').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const idPlatillo = document.getElementById('select-platillo-produccion').value;
-        const cantidadPreparar = parseFloat(document.getElementById('cantidad-produccion').value);
-
-        const ingredientes = recetasGlobal.filter(r => r.id_platillo == idPlatillo);
-        if (ingredientes.length === 0) {
-            alert("Este platillo no tiene ingredientes en su receta."); 
-            return;
-        }
-
-        let promesas = [];
-        ingredientes.forEach(ing => {
-            const insumo = insumosGlobal.find(i => i.id == ing.id_insumo);
-            if (insumo) {
-                const totalDescontar = parseFloat(ing.cantidad_usada) * cantidadPreparar;
-                const nuevoStock = parseFloat(insumo.cantidad_actual) - totalDescontar;
-                promesas.push(db.from('insumos').update({cantidad_actual: nuevoStock}).eq('id', insumo.id));
-            }
-        });
-
-        try {
-            const resultados = await Promise.all(promesas);
-            const errores = resultados.filter(r => r.error);
-            if (errores.length > 0) throw new Error("Fallo en la conexión al descontar.");
-
-            alert(`Listo! Se prepararon ${cantidadPreparar} unidades y se descontó la materia prima y/o pre-procesados.`);
-            document.getElementById('form-produccion').reset();
-            cargarDatosMaestros();
-        } catch (error) {
-            alert(`Error al procesar la producción: ${error.message}`);
-        }
-    });
-
     document.getElementById('form-proveedor').addEventListener('submit', async (e) => {
         e.preventDefault();
         const idProv = document.getElementById('prov-id').value;
@@ -674,7 +714,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const asignadosId = asignacionesGlobal.filter(a => a.id_proveedor == idProv).map(a => a.id_insumo);
-        // Solo mostrar los de Bodega para asignarle proveedor
         const disponibles = insumosGlobal.filter(i => !asignadosId.includes(i.id) && i.categoria !== 'preparado');
 
         if (disponibles.length === 0) {
@@ -724,23 +763,45 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    document.getElementById('select-prov-entrada').addEventListener('change', (e) => {
-        document.getElementById('buscador-entrada').value = '';
-        generarListaInteractiva(e.target.value, 'lista-entrada-dinamica', 'entrada');
-    });
-    document.getElementById('select-prov-salida').addEventListener('change', (e) => {
-        document.getElementById('buscador-salida').value = '';
-        generarListaInteractiva(e.target.value, 'lista-salida-dinamica', 'salida');
-    });
-    document.getElementById('select-prov-pedido').addEventListener('change', (e) => {
-        document.getElementById('buscador-pedido').value = '';
-        generarListaInteractiva(e.target.value, 'lista-pedido-dinamica', 'pedido');
-        document.getElementById('btn-imprimir-pedido').style.display = e.target.value ? 'block' : 'none';
-    });
-
     document.body.addEventListener('click', async (e) => {
         
-        // Editar Insumo BODEGA
+        const btnFicha = e.target.closest('.btn-imprimir-ficha');
+        if (btnFicha) {
+            imprimirFichaTecnica(btnFicha.getAttribute('data-id'));
+            return;
+        }
+
+        // CARGAR EL CREADOR DE COSTOS
+        const btnEditarPlatillo = e.target.closest('.btn-editar-platillo');
+        if (btnEditarPlatillo) {
+            const idBuscar = btnEditarPlatillo.getAttribute('data-id');
+            const platilloEncontrado = platillosGlobal.find(p => p.id == idBuscar);
+            
+            if (platilloEncontrado) {
+                document.getElementById('platillo-id').value = platilloEncontrado.id;
+                document.getElementById('platillo-nombre').value = platilloEncontrado.nombre || '';
+                document.getElementById('platillo-codigo').value = platilloEncontrado.codigo || '';
+                document.getElementById('platillo-categoria').value = platilloEncontrado.categoria || '';
+                document.getElementById('platillo-porciones').value = platilloEncontrado.porciones || 1;
+                document.getElementById('platillo-margen').value = platilloEncontrado.margen_error || 10;
+                document.getElementById('platillo-porcentaje').value = platilloEncontrado.porcentaje_costo_establecido || 30;
+                
+                document.getElementById('titulo-form-platillo').innerText = `Editando Costos: ${platilloEncontrado.nombre}`;
+                document.getElementById('btn-guardar-platillo').innerText = "Actualizar Perfil de Platillo";
+                document.getElementById('btn-guardar-platillo').classList.replace('btn-primario', 'btn-editar');
+                document.getElementById('btn-cancelar-platillo').classList.remove('oculto');
+                
+                document.getElementById('panel-armado-receta').style.display = 'block';
+                document.getElementById('receta-platillo-id').value = platilloEncontrado.id;
+                
+                platilloEnEdicionActual = platilloEncontrado.id;
+                actualizarTablaRecetaViva(platilloEnEdicionActual);
+
+                document.getElementById('area-scroll').scrollTo({ top: 0, behavior: 'smooth' });
+            }
+            return;
+        }
+
         const btnEditarInsumo = e.target.closest('.btn-editar-insumo');
         if (btnEditarInsumo) {
             const idBuscar = btnEditarInsumo.getAttribute('data-id');
@@ -773,34 +834,11 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // Editar Insumo PRODUCCION
-        const btnEditarProd = e.target.closest('.btn-editar-prod');
-        if (btnEditarProd) {
-            const idBuscar = btnEditarProd.getAttribute('data-id');
-            const insumoEncontrado = insumosGlobal.find(i => i.id == idBuscar);
-            
-            if (insumoEncontrado) {
-                document.getElementById('prod-id').value = insumoEncontrado.id;
-                document.getElementById('prod-codigo').value = insumoEncontrado.codigo || '';
-                document.getElementById('prod-nombre').value = insumoEncontrado.nombre || '';
-                document.getElementById('prod-unidad').value = insumoEncontrado.unidad_medida || '';
-                document.getElementById('prod-minimo').value = insumoEncontrado.stock_minimo || 0;
-                document.getElementById('prod-inicial').value = insumoEncontrado.cantidad_actual || 0;
-                
-                document.getElementById('btn-guardar-prod').innerText = "Actualizar Cambios";
-                document.getElementById('btn-guardar-prod').classList.replace('btn-primario', 'btn-editar');
-                document.getElementById('btn-cancelar-prod').classList.remove('oculto');
-                
-                document.getElementById('area-scroll').scrollTo({ top: 0, behavior: 'smooth' });
-            }
-            return;
-        }
-
         const btnEditarPrecio = e.target.closest('.btn-editar-precio');
         if (btnEditarPrecio) {
             const idAsig = parseInt(btnEditarPrecio.getAttribute('data-id'), 10);
             const precioActual = btnEditarPrecio.getAttribute('data-precio');
-            const nuevoPrecio = prompt("Ingrese el nuevo precio (Ej. 15.50):", precioActual);
+            const nuevoPrecio = prompt("Ingrese el nuevo precio de compra a proveedor (Ej. 100.50):", precioActual);
             
             if (nuevoPrecio !== null && nuevoPrecio.trim() !== "" && !isNaN(parseFloat(nuevoPrecio))) {
                 try {
@@ -879,14 +917,19 @@ document.addEventListener('DOMContentLoaded', () => {
         if (btnQuitarReceta) {
             const idReceta = parseInt(btnQuitarReceta.getAttribute('data-id'), 10);
             await db.from('platillo_insumo').delete().eq('id', idReceta);
-            cargarDatosMaestros();
+            await cargarDatosMaestros();
             return;
         }
 
         const btnEliminarPlatillo = e.target.closest('.btn-eliminar-platillo');
         if (btnEliminarPlatillo) {
-            if (window.confirm("¿Eliminar este platillo? Se borrará su receta también.")) {
+            if (window.confirm("¿Eliminar este platillo y su receta?")) {
                 await db.from('platillos').delete().eq('id', parseInt(btnEliminarPlatillo.getAttribute('data-id'), 10));
+                
+                if (platilloEnEdicionActual == btnEliminarPlatillo.getAttribute('data-id')) {
+                    cancelarEdicionPlatillo();
+                }
+                
                 cargarDatosMaestros();
             }
             return;
@@ -906,12 +949,16 @@ window.cancelarEdicion = function() {
     document.getElementById('btn-cancelar').classList.add('oculto');
 }
 
-window.cancelarEdicionProd = function() {
-    document.getElementById('form-insumo-prod').reset();
-    document.getElementById('prod-id').value = "";
-    document.getElementById('btn-guardar-prod').innerText = "Guardar Insumo";
-    document.getElementById('btn-guardar-prod').classList.replace('btn-editar', 'btn-primario');
-    document.getElementById('btn-cancelar-prod').classList.add('oculto');
+window.cancelarEdicionPlatillo = function() {
+    document.getElementById('form-platillo').reset();
+    document.getElementById('platillo-id').value = "";
+    document.getElementById('titulo-form-platillo').innerText = "Crea o Edita los Costos del Platillo";
+    document.getElementById('btn-guardar-platillo').innerText = "💾 Guardar Datos del Platillo";
+    document.getElementById('btn-guardar-platillo').classList.replace('btn-editar', 'btn-primario');
+    document.getElementById('btn-cancelar-platillo').classList.add('oculto');
+    
+    document.getElementById('panel-armado-receta').style.display = 'none';
+    platilloEnEdicionActual = null;
 }
 
 window.cancelarEdicionProv = function() {
@@ -926,7 +973,6 @@ window.cancelarEdicionProv = function() {
 window.imprimirPedidoManual = function() {
     const provNombre = document.getElementById('select-prov-pedido').options[document.getElementById('select-prov-pedido').selectedIndex].text;
     const inputs = document.querySelectorAll('#lista-pedido-dinamica .input-cant');
-    
     let htmlTabla = '';
     let hayItems = false;
     let granTotal = 0;
@@ -940,7 +986,6 @@ window.imprimirPedidoManual = function() {
             const precioUnitario = parseFloat(input.getAttribute('data-precio')) || 0;
             const subtotal = cantidad * precioUnitario;
             granTotal += subtotal;
-            
             const codigoTexto = prodInfo.codigo ? `[${prodInfo.codigo}] ` : '';
             
             htmlTabla += `
@@ -953,10 +998,7 @@ window.imprimirPedidoManual = function() {
         }
     });
 
-    if(!hayItems) {
-        alert("No has puesto ninguna cantidad para pedir.");
-        return;
-    }
+    if(!hayItems) { alert("No has puesto ninguna cantidad para pedir."); return; }
 
     abrirVentanaImpresion(`
         <h1>Orden de Compra</h1>
@@ -965,34 +1007,24 @@ window.imprimirPedidoManual = function() {
         <hr>
         <table style="width:100%; border-collapse: collapse; text-align: left;" border="1" cellpadding="8">
             <tr style="background-color: #f4f4f4;">
-                <th>Producto a Comprar</th>
-                <th style="text-align:center;">Cantidad</th>
-                <th style="text-align:right;">Precio Unit.</th>
-                <th style="text-align:right;">Subtotal</th>
+                <th>Producto a Comprar</th><th style="text-align:center;">Cantidad</th><th style="text-align:right;">Precio Unit.</th><th style="text-align:right;">Subtotal</th>
             </tr>
             ${htmlTabla}
-            <tr>
-                <td colspan="3" style="text-align: right; font-weight: bold; font-size: 1.2em;">GRAN TOTAL:</td>
-                <td style="text-align: right; font-weight: bold; font-size: 1.2em; color: green;">Q${granTotal.toFixed(2)}</td>
-            </tr>
+            <tr><td colspan="3" style="text-align: right; font-weight: bold; font-size: 1.2em;">GRAN TOTAL:</td><td style="text-align: right; font-weight: bold; font-size: 1.2em; color: green;">Q${granTotal.toFixed(2)}</td></tr>
         </table>
     `);
 }
 
 window.imprimirReporteAutomatico = function() {
-    let contenido = `<h1>Reporte Automático de Faltantes</h1>
-                     <p>Generado el: ${new Date().toLocaleDateString()}</p><hr>`;
+    let contenido = `<h1>Reporte Automático de Faltantes</h1><p>Generado el: ${new Date().toLocaleDateString()}</p><hr>`;
     let hayCompras = false;
 
     proveedoresGlobal.forEach(prov => {
         const susAsig = asignacionesGlobal.filter(a => a.id_proveedor == prov.id);
         let productosNecesitados = [];
-
         susAsig.forEach(asig => {
             const insumo = insumosGlobal.find(i => i.id == asig.id_insumo);
-            if(insumo && parseFloat(insumo.cantidad_actual) <= parseFloat(insumo.stock_minimo)) {
-                productosNecesitados.push(insumo);
-            }
+            if(insumo && parseFloat(insumo.cantidad_actual) <= parseFloat(insumo.stock_minimo)) productosNecesitados.push(insumo);
         });
 
         if (productosNecesitados.length > 0) {
@@ -1001,13 +1033,7 @@ window.imprimirReporteAutomatico = function() {
                 <table style="width:100%; border-collapse:collapse; text-align:left;" border="1" cellpadding="8">
                     <tr style="background-color:#f4f4f4;"><th>Código</th><th>Producto</th><th>Bodega</th><th>Mínimo</th></tr>`;
             productosNecesitados.forEach(prod => {
-                const codigoTexto = prod.codigo ? prod.codigo : '---';
-                contenido += `<tr>
-                    <td>${codigoTexto}</td>
-                    <td>${prod.nombre}</td>
-                    <td style="color:red; font-weight:bold;">${prod.cantidad_actual} ${prod.unidad_medida}</td>
-                    <td>${prod.stock_minimo} ${prod.unidad_medida}</td>
-                </tr>`;
+                contenido += `<tr><td>${prod.codigo || '---'}</td><td>${prod.nombre}</td><td style="color:red; font-weight:bold;">${prod.cantidad_actual} ${prod.unidad_medida}</td><td>${prod.stock_minimo} ${prod.unidad_medida}</td></tr>`;
             });
             contenido += `</table><br>`;
         }
@@ -1018,7 +1044,7 @@ window.imprimirReporteAutomatico = function() {
 }
 
 function abrirVentanaImpresion(htmlContenido) {
-    const ventana = window.open('', '_blank', 'width=800,height=600');
+    const ventana = window.open('', '_blank', 'width=900,height=700');
     ventana.document.write(`
         <html><head><title>Imprimir Documento</title>
         <style>body{font-family: Arial, sans-serif; padding: 20px;} th, td { border-bottom: 1px solid #ddd; }</style>
