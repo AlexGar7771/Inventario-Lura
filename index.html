@@ -117,7 +117,7 @@
                         </div>
                     </form>
 
-                    <!-- CONSTRUCTOR DE INGREDIENTES CON CONVERSIÓN DE PESO/COSTO -->
+                    <!-- CONSTRUCTOR DE INGREDIENTES CON BUSCADOR -->
                     <div id="panel-armado-receta" style="display: none; padding-top: 15px; border-top: 2px dashed #ccc;">
                         <h4 style="margin-bottom: 10px; color: var(--azul);">2. Agregar Ingredientes (Cálculo de Costo Exacto)</h4>
                         
@@ -127,11 +127,13 @@
                             <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px;">
                                 <div style="flex: 2; min-width: 250px;">
                                     <label style="font-size: 0.8em; font-weight: bold;">Ingrediente del Inventario:</label>
+                                    <!-- NUEVO: BARRA DE BÚSQUEDA PARA LA LISTA DESPLEGABLE -->
+                                    <input type="text" id="buscador-insumo-receta" placeholder="🔍 Escribe para buscar rápido..." style="margin-bottom: 5px; padding: 8px; border: 1px solid var(--naranja); border-radius: 4px; width: 100%;">
                                     <select id="select-insumo-receta" required></select>
                                 </div>
                                 <div style="flex: 1; min-width: 150px;">
                                     <label style="font-size: 0.8em; color: gray;">Precio de compra actual:</label>
-                                    <div id="display-precio-insumo" style="padding: 10px; background: #e5e7eb; border-radius: 4px; font-weight: bold; color: var(--azul);">Q0.00 / Unidad</div>
+                                    <div id="display-precio-insumo" style="padding: 10px; background: #e5e7eb; border-radius: 4px; font-weight: bold; color: var(--azul); margin-top: 5px;">Q0.00 / Unidad</div>
                                 </div>
                             </div>
 
@@ -177,7 +179,7 @@
                 </div>
             </section>
 
-            <!-- LOS DEMÁS MÓDULOS (PROVEEDORES Y BODEGA) SE MANTIENEN EXACTAMENTE IGUAL... -->
+            <!-- LOS DEMÁS MÓDULOS SE MANTIENEN IGUAL... -->
             <section id="modulo-proveedores" class="modulo">
                 <h2>Gestión de Proveedores y Pedidos</h2>
                 <div class="contenedor-flex">

@@ -19,6 +19,8 @@ async function cargarDatosMaestros() {
         const resRecetas = await db.from('platillo_insumo').select('*');
 
         insumosGlobal = resInsumos.data || [];
+        insumosGlobal.forEach(i => { if(!i.categoria) i.categoria = 'bodega'; });
+
         proveedoresGlobal = resProv.data || [];
         asignacionesGlobal = resAsig.data || [];
         platillosGlobal = resPlatillos.data || [];
@@ -31,7 +33,7 @@ async function cargarDatosMaestros() {
         renderizarInsumos();
         renderizarProveedores();
         renderizarCatalogoProveedores();
-        renderizarManejoRecetas();
+        renderizarManejoRecetas(); // Carga las tarjetas de las recetas y llena la lista de insumos
         
         document.getElementById('select-prov-entrada').dispatchEvent(new Event('change'));
         document.getElementById('select-prov-salida').dispatchEvent(new Event('change'));
@@ -102,19 +104,34 @@ function renderizarInsumos(filtroBodega = '') {
     }
 }
 
-// === CREADOR DE RECETAS ENFOCADO A COSTOS ===
-function renderizarManejoRecetas() {
+// === FUNCION PARA RELLENAR Y FILTRAR EL SELECTOR DE INGREDIENTES ===
+window.llenarSelectInsumosReceta = function(filtro = '') {
     const selInsumoReceta = document.getElementById('select-insumo-receta');
+    if(!selInsumoReceta) return;
+    
+    const valorGuardado = selInsumoReceta.value;
+    selInsumoReceta.innerHTML = '<option value="">Seleccione Insumo desde su Inventario...</option>';
+    
+    const textoBusqueda = filtro.toLowerCase();
+
+    insumosGlobal.forEach(i => {
+        const nombre = i.codigo ? `[${i.codigo}] ${i.nombre}` : i.nombre;
+        if (nombre.toLowerCase().includes(textoBusqueda)) {
+            selInsumoReceta.innerHTML += `<option value="${i.id}">${nombre}</option>`;
+        }
+    });
+
+    // Restaurar el valor si sigue en pantalla tras filtrar
+    if(valorGuardado) selInsumoReceta.value = valorGuardado;
+}
+
+function renderizarManejoRecetas() {
     const contenedorCatalogo = document.getElementById('contenedor-catalogo-recetas');
 
-    if(selInsumoReceta) {
-        selInsumoReceta.innerHTML = '<option value="">Seleccione Insumo desde su Inventario...</option>';
-        insumosGlobal.forEach(i => {
-            const nombre = i.codigo ? `[${i.codigo}] ${i.nombre}` : i.nombre;
-            selInsumoReceta.innerHTML += `<option value="${i.id}">${nombre}</option>`;
-        });
-    }
+    // Llena la lista de ingredientes inicial
+    llenarSelectInsumosReceta();
 
+    // Dibuja las tarjetas de los platillos guardados
     if(contenedorCatalogo) {
         contenedorCatalogo.innerHTML = '';
         platillosGlobal.forEach(platillo => {
@@ -137,7 +154,7 @@ function renderizarManejoRecetas() {
     }
 }
 
-// Al seleccionar un insumo, muestra automáticamente su precio de compra para ayudar a la conversión
+// Actualiza los precios cuando seleccionas un ingrediente
 document.addEventListener('DOMContentLoaded', () => {
     const selInsumo = document.getElementById('select-insumo-receta');
     if(selInsumo) {
@@ -158,8 +175,16 @@ document.addEventListener('DOMContentLoaded', () => {
             const precio = asig ? parseFloat(asig.precio).toFixed(2) : "0.00";
             
             display.innerHTML = `Compras en: <b>[${insumo.unidad_medida}]</b> a <b>Q${precio}</b>`;
-            eqInput.value = 1; // Por defecto es 1 a 1
+            eqInput.value = 1; 
             ayudaTexto.innerText = `¿Cuántas de las unidades seleccionadas a la izquierda caben dentro de 1 ${insumo.unidad_medida}?`;
+        });
+    }
+
+    // LISTENER DEL NUEVO BUSCADOR DE INGREDIENTES
+    const buscadorInsumoReceta = document.getElementById('buscador-insumo-receta');
+    if (buscadorInsumoReceta) {
+        buscadorInsumoReceta.addEventListener('input', (e) => {
+            llenarSelectInsumosReceta(e.target.value);
         });
     }
 });
@@ -180,12 +205,10 @@ function actualizarTablaRecetaViva(idPlatillo) {
     ingredientesReceta.forEach(ing => {
         const insumo = insumosGlobal.find(i => i.id == ing.id_insumo);
         if (insumo) {
-            // Buscamos precio para cálculo matemático
             const asig = asignacionesGlobal.find(a => a.id_insumo == insumo.id);
             const precioCompra = asig ? parseFloat(asig.precio) : 0;
             const equivalencia = parseFloat(ing.equivalencia) || 1;
             
-            // LA MATEMÁTICA PURA
             const costoUnitarioConvertido = precioCompra / equivalencia;
             const cantidadUsada = parseFloat(ing.cantidad_usada);
             const costoTotalIngrediente = costoUnitarioConvertido * cantidadUsada;
@@ -206,7 +229,6 @@ function actualizarTablaRecetaViva(idPlatillo) {
         }
     });
 
-    // Añadir una fila de total
     tbody.innerHTML += `
         <tr style="background-color: #fef3c7;">
             <td colspan="3" style="text-align:right; font-weight:bold;">Subtotal de Costo (Materia Prima):</td>
@@ -398,7 +420,7 @@ window.procesarLote = async function(tipo) {
     } catch (error) { alert(`Error al guardar el lote: ${error.message}`); }
 }
 
-// === GENERADOR ESTRICTO DE LA FICHA TÉCNICA DE COSTOS ===
+// === GENERADOR DE LA FICHA TÉCNICA ===
 window.imprimirFichaTecnica = function(idPlatillo) {
     const platillo = platillosGlobal.find(p => p.id == idPlatillo);
     if (!platillo) return;
@@ -420,7 +442,6 @@ window.imprimirFichaTecnica = function(idPlatillo) {
             const precioCompra = asig ? parseFloat(asig.precio) : 0;
             const equivalencia = parseFloat(ing.equivalencia) || 1;
             
-            // CONVERSIÓN PURA DE COSTOS
             let costoUnitarioConvertido = precioCompra / equivalencia;
             let cantidadUsada = parseFloat(ing.cantidad_usada);
             let costoTotalIngrediente = cantidadUsada * costoUnitarioConvertido;
@@ -506,8 +527,6 @@ window.imprimirFichaTecnica = function(idPlatillo) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    cargarDatosMaestros();
-
     const btnToggleMenu = document.getElementById('btn-menu-toggle');
     const btnCerrarMenu = document.getElementById('btn-cerrar-menu');
     const sidebar = document.getElementById('sidebar');
@@ -554,10 +573,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    document.body.addEventListener('input', (e) => {
-        if(e.target.classList.contains('input-cant')) calcularTotales();
-    });
-
     document.querySelectorAll('.btn-nav').forEach(boton => {
         boton.addEventListener('click', () => {
             document.querySelectorAll('.btn-nav, .modulo').forEach(el => el.classList.remove('activo'));
@@ -567,7 +582,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // --- FORMULARIO PERFIL PLATILLO (COSTOS) ---
     document.getElementById('form-platillo').addEventListener('submit', async (e) => {
         e.preventDefault();
         const idEdicion = document.getElementById('platillo-id').value;
@@ -595,7 +609,6 @@ document.addEventListener('DOMContentLoaded', () => {
             
             await cargarDatosMaestros();
             
-            // Modo "Editando Receta Viva"
             const botonFantasma = document.createElement('button');
             botonFantasma.className = 'btn-editar-platillo';
             botonFantasma.setAttribute('data-id', platilloGuardadoId);
@@ -606,7 +619,6 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (error) { alert(`Error al guardar platillo: ${error.message}`); }
     });
 
-    // --- AÑADIR INGREDIENTE CON CONVERSIÓN ---
     document.getElementById('form-receta').addEventListener('submit', async (e) => {
         e.preventDefault();
         const idPlatillo = document.getElementById('receta-platillo-id').value;
@@ -631,6 +643,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (error) throw error;
             
             document.getElementById('cantidad-receta').value = "";
+            document.getElementById('buscador-insumo-receta').value = "";
+            llenarSelectInsumosReceta(); 
+            document.getElementById('display-precio-insumo').innerText = "Q0.00 / Unidad";
+
             await cargarDatosMaestros();
             
         } catch (error) { alert("Error al asignar ingrediente (Tal vez ya estaba asignado en este platillo)."); }
@@ -763,6 +779,20 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    document.getElementById('select-prov-entrada').addEventListener('change', (e) => {
+        document.getElementById('buscador-entrada').value = '';
+        generarListaInteractiva(e.target.value, 'lista-entrada-dinamica', 'entrada');
+    });
+    document.getElementById('select-prov-salida').addEventListener('change', (e) => {
+        document.getElementById('buscador-salida').value = '';
+        generarListaInteractiva(e.target.value, 'lista-salida-dinamica', 'salida');
+    });
+    document.getElementById('select-prov-pedido').addEventListener('change', (e) => {
+        document.getElementById('buscador-pedido').value = '';
+        generarListaInteractiva(e.target.value, 'lista-pedido-dinamica', 'pedido');
+        document.getElementById('btn-imprimir-pedido').style.display = e.target.value ? 'block' : 'none';
+    });
+
     document.body.addEventListener('click', async (e) => {
         
         const btnFicha = e.target.closest('.btn-imprimir-ficha');
@@ -771,7 +801,6 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // CARGAR EL CREADOR DE COSTOS
         const btnEditarPlatillo = e.target.closest('.btn-editar-platillo');
         if (btnEditarPlatillo) {
             const idBuscar = btnEditarPlatillo.getAttribute('data-id');
