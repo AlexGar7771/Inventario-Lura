@@ -33,7 +33,7 @@ async function cargarDatosMaestros() {
         renderizarInsumos();
         renderizarProveedores();
         renderizarCatalogoProveedores();
-        renderizarManejoRecetas(); // Carga las tarjetas de las recetas y llena la lista de insumos
+        renderizarManejoRecetas(); 
         
         document.getElementById('select-prov-entrada').dispatchEvent(new Event('change'));
         document.getElementById('select-prov-salida').dispatchEvent(new Event('change'));
@@ -104,7 +104,6 @@ function renderizarInsumos(filtroBodega = '') {
     }
 }
 
-// === FUNCION PARA RELLENAR Y FILTRAR EL SELECTOR DE INGREDIENTES ===
 window.llenarSelectInsumosReceta = function(filtro = '') {
     const selInsumoReceta = document.getElementById('select-insumo-receta');
     if(!selInsumoReceta) return;
@@ -121,17 +120,13 @@ window.llenarSelectInsumosReceta = function(filtro = '') {
         }
     });
 
-    // Restaurar el valor si sigue en pantalla tras filtrar
     if(valorGuardado) selInsumoReceta.value = valorGuardado;
 }
 
 function renderizarManejoRecetas() {
     const contenedorCatalogo = document.getElementById('contenedor-catalogo-recetas');
-
-    // Llena la lista de ingredientes inicial
     llenarSelectInsumosReceta();
 
-    // Dibuja las tarjetas de los platillos guardados
     if(contenedorCatalogo) {
         contenedorCatalogo.innerHTML = '';
         platillosGlobal.forEach(platillo => {
@@ -154,7 +149,6 @@ function renderizarManejoRecetas() {
     }
 }
 
-// Actualiza los precios cuando seleccionas un ingrediente
 document.addEventListener('DOMContentLoaded', () => {
     const selInsumo = document.getElementById('select-insumo-receta');
     if(selInsumo) {
@@ -180,7 +174,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // LISTENER DEL NUEVO BUSCADOR DE INGREDIENTES
     const buscadorInsumoReceta = document.getElementById('buscador-insumo-receta');
     if (buscadorInsumoReceta) {
         buscadorInsumoReceta.addEventListener('input', (e) => {
@@ -777,20 +770,6 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (error) { 
             alert(`Error al vincular: ${error.message}`); 
         }
-    });
-
-    document.getElementById('select-prov-entrada').addEventListener('change', (e) => {
-        document.getElementById('buscador-entrada').value = '';
-        generarListaInteractiva(e.target.value, 'lista-entrada-dinamica', 'entrada');
-    });
-    document.getElementById('select-prov-salida').addEventListener('change', (e) => {
-        document.getElementById('buscador-salida').value = '';
-        generarListaInteractiva(e.target.value, 'lista-salida-dinamica', 'salida');
-    });
-    document.getElementById('select-prov-pedido').addEventListener('change', (e) => {
-        document.getElementById('buscador-pedido').value = '';
-        generarListaInteractiva(e.target.value, 'lista-pedido-dinamica', 'pedido');
-        document.getElementById('btn-imprimir-pedido').style.display = e.target.value ? 'block' : 'none';
     });
 
     document.body.addEventListener('click', async (e) => {
