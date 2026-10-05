@@ -3,8 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Inventario - Costos y Producción</title>
+    <title>Inventario - Control y Costos</title>
     <link rel="stylesheet" href="estilo.css">
+    <style>
+        .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
+        .grid-4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; }
+        .caja-resumen { text-align: center; padding: 20px; border-radius: 8px; font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        .caja-resumen small { display: block; font-size: 0.85em; font-weight: normal; color: #666; margin-bottom: 5px; text-transform: uppercase; }
+        .ficha-activa { border: 2px solid var(--azul); box-shadow: 0 4px 12px rgba(0,0,0,0.15); padding: 20px; border-radius: 8px; background-color: #fff; margin-bottom: 20px; }
+    </style>
 </head>
 <body>
 
@@ -22,62 +29,112 @@
                 <button id="btn-cerrar-menu" style="background:none; border:none; color:white; font-size:1.5rem; cursor:pointer;" class="oculto">×</button>
             </h2>
             <nav>
+                <button class="btn-nav activo" data-modulo="dashboard" style="border-left: 3px solid #8b5cf6;">📊 Panel Principal</button>
                 <button class="btn-nav" data-modulo="productos">Catálogo Inventario</button>
-                <button class="btn-nav activo" data-modulo="produccion" style="border-left: 3px solid var(--naranja);">Costos de Platillos</button>
-                <button class="btn-nav" data-modulo="proveedores">Proveedores y Pedidos</button>
+                <button class="btn-nav" data-modulo="produccion">Costos de Platillos</button>
+                <button class="btn-nav" data-modulo="lista-precios" style="border-left: 3px solid var(--verde);">💰 Precios y Proveedores</button>
+                <button class="btn-nav" data-modulo="proveedores">Gestión Proveedores</button>
                 <button class="btn-nav" data-modulo="bodega">Entradas y Salidas</button>
-                <button class="btn-nav" data-modulo="alertas" style="color: #fca5a5; font-weight: bold;">Alertas de Stock</button>
             </nav>
         </aside>
 
-        <!-- CONTENIDO PRINCIPAL -->
         <main class="contenido-principal" id="area-scroll">
             
-            <section id="modulo-alertas" class="modulo">
-                <h2>Alertas de Stock Mínimo</h2>
-                <div class="tarjeta" style="border-top: 4px solid var(--rojo-texto);">
-                    <h3 style="margin-bottom: 15px; color: var(--rojo-texto);">Productos con inventario crítico</h3>
-                    <div id="contenedor-alertas-panel" style="display: flex; flex-direction: column; gap: 10px;"></div>
+            <!-- ==========================================
+                 0. EL "ALGO MÁS": DASHBOARD PRINCIPAL
+                 ========================================== -->
+            <section id="modulo-dashboard" class="modulo activo">
+                <h2>Panel de Control General</h2>
+                <div class="grid-4" style="margin-bottom: 20px;">
+                    <div class="caja-resumen" style="background-color: #e0f2fe; color: #0369a1; border-bottom: 4px solid #0284c7;">
+                        <small>Valor Total en Bodega</small>
+                        <span id="dash-valor-bodega" style="font-size: 1.8em;">Q0.00</span>
+                    </div>
+                    <div class="caja-resumen" style="background-color: #fef3c7; color: #92400e; border-bottom: 4px solid #d97706;">
+                        <small>Total de Productos</small>
+                        <span id="dash-total-productos" style="font-size: 1.8em;">0</span>
+                    </div>
+                    <div class="caja-resumen" style="background-color: #fee2e2; color: #b91c1c; border-bottom: 4px solid #dc2626;">
+                        <small>Alertas de Stock</small>
+                        <span id="dash-alertas" style="font-size: 1.8em;">0</span>
+                    </div>
+                    <div class="caja-resumen" style="background-color: #d1fae5; color: #065f46; border-bottom: 4px solid #059669;">
+                        <small>Recetas Creadas</small>
+                        <span id="dash-recetas" style="font-size: 1.8em;">0</span>
+                    </div>
+                </div>
+
+                <div class="tarjeta" style="border-top: 4px solid #dc2626;">
+                    <h3 style="color: #dc2626; margin-bottom: 15px;">⚠️ Productos por Agotarse</h3>
+                    <div id="dash-lista-alertas" style="display: flex; flex-direction: column; gap: 10px;">
+                        <!-- Llenado por JS -->
+                    </div>
                 </div>
             </section>
 
+            <!-- ==========================================
+                 1. MÓDULO DE INVENTARIO
+                 ========================================== -->
             <section id="modulo-productos" class="modulo">
                 <h2>Catálogo de Inventario (Materia Prima)</h2>
-                <div class="tarjeta">
-                    <h3 id="titulo-formulario" style="margin-bottom: 15px;">Agregar Nuevo Producto</h3>
+                
+                <div class="tarjeta" style="border-top: 5px solid var(--azul);">
+                    <h3 id="titulo-formulario" style="margin-bottom: 15px;">Agregar Nuevo Producto al Inventario</h3>
                     <form id="form-insumo" class="formulario-horizontal">
                         <input type="hidden" id="insumo-id" value="">
-                        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                            <div style="flex: 1; min-width: 100px;"><label style="font-size: 0.8em; color: gray;">Código:</label><input type="text" id="insumo-codigo" placeholder="Ej. P-001"></div>
-                            <div style="flex: 2; min-width: 200px;"><label style="font-size: 0.8em; color: gray;">Nombre:</label><input type="text" id="insumo-nombre" placeholder="Nombre" required></div>
-                            <div style="flex: 1; min-width: 100px;"><label style="font-size: 0.8em; color: gray;">Unidad de Compra:</label><input type="text" id="insumo-unidad" placeholder="Ej. Lbs, Galón, Caja" required></div>
+                        
+                        <div class="grid-3" style="margin-bottom: 15px;">
+                            <div><label style="font-size: 0.8em; font-weight: bold;">Código:</label><input type="text" id="insumo-codigo" placeholder="Ej. P-001"></div>
+                            <div style="grid-column: span 2;"><label style="font-size: 0.8em; font-weight: bold;">Nombre del Producto:</label><input type="text" id="insumo-nombre" placeholder="Ej. Pechuga de Pollo" required></div>
                         </div>
-                        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                            <div style="flex: 1; min-width: 120px;"><label style="font-size: 0.8em; color: #666;">Stock Mínimo:</label><input type="number" id="insumo-minimo" placeholder="Mínimo" required></div>
-                            <div style="flex: 1; min-width: 120px;"><label style="font-size: 0.8em; color: #666;">Stock Inicial:</label><input type="number" id="insumo-inicial" placeholder="Cantidad actual" value="0" required></div>
+
+                        <div style="background-color: #e0f2fe; padding: 15px; border-radius: 5px; border: 1px solid #7dd3fc; margin-bottom: 15px;">
+                            <label style="font-size: 0.9em; font-weight: bold; color: #0369a1; display: block; margin-bottom: 10px;">💵 Presentación y Precio de Compra (Vital para el cálculo de costos)</label>
+                            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                                <span>Compro</span>
+                                <input type="number" id="insumo-cantidad-compra" value="1" step="0.01" required style="width: 80px; padding: 8px;">
+                                <select id="insumo-unidad" required style="padding: 8px; width: 130px;">
+                                    <option value="lb">Libras (lb)</option>
+                                    <option value="kg">Kilos (kg)</option>
+                                    <option value="l">Litros (l)</option>
+                                    <option value="gal">Galones (gal)</option>
+                                    <option value="unidad">Unidades/Piezas</option>
+                                    <option value="g">Gramos (g)</option>
+                                    <option value="ml">Mililitros (ml)</option>
+                                    <option value="caja">Caja</option>
+                                    <option value="porcion">Porción (Sub-receta)</option>
+                                </select>
+                                <span>a un precio de <strong style="color: green;">Q</strong></span>
+                                <input type="number" id="insumo-precio-compra" placeholder="150.00" step="0.01" required style="width: 120px; padding: 8px; font-weight: bold; color: green;">
+                            </div>
                         </div>
-                        <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; padding-top: 15px; border-top: 1px dashed var(--borde);">
-                            <div style="flex: 2; min-width: 200px;">
-                                <label style="font-size: 0.85em; color: var(--azul); font-weight: bold;">Proveedor (Asignación Rápida):</label>
+
+                        <div class="grid-3" style="margin-bottom: 15px;">
+                            <div><label style="font-size: 0.8em; color: #666;">Stock Mínimo (Alerta):</label><input type="number" id="insumo-minimo" placeholder="Ej. 5" required></div>
+                            <div><label style="font-size: 0.8em; color: #666;">Stock Actual en Bodega:</label><input type="number" id="insumo-inicial" placeholder="Ej. 10" value="0" required></div>
+                            <div>
+                                <label style="font-size: 0.85em; color: var(--azul); font-weight: bold;">Proveedor Rápido:</label>
                                 <select id="insumo-prov-rapido"><option value="">Sin asignar por ahora</option></select>
                             </div>
-                            <div style="flex: 1; min-width: 100px;">
-                                <label style="font-size: 0.85em; color: var(--azul); font-weight: bold;">Precio de Compra (Q):</label>
-                                <input type="number" id="insumo-precio-rapido" step="0.01" placeholder="Ej. 15.50">
-                            </div>
                         </div>
-                        <div style="display: flex; gap: 10px; margin-top: 20px;">
-                            <button type="submit" id="btn-guardar" class="btn btn-primario" style="flex: 1;">Guardar Producto</button>
+
+                        <div style="display: flex; gap: 10px;">
+                            <button type="submit" id="btn-guardar" class="btn btn-primario" style="flex: 1; height: 42px;">💾 Guardar Producto</button>
                             <button type="button" id="btn-cancelar" class="btn btn-peligro oculto" onclick="cancelarEdicion()">Cancelar</button>
                         </div>
                     </form>
                 </div>
+
                 <div class="tarjeta">
-                    <h3 style="margin-bottom: 10px;">Inventario Actual</h3>
-                    <input type="text" id="buscador-insumos" placeholder="Buscar por código o nombre..." style="width: 100%; padding: 12px; margin-bottom: 15px;">
+                    <h3 style="margin-bottom: 10px;">Inventario Actual en Bodega</h3>
+                    <input type="text" id="buscador-insumos" placeholder="🔍 Buscar por código o nombre..." style="width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid var(--azul); border-radius: 4px;">
                     <div class="tabla-contenedor">
-                        <table>
-                            <thead><tr style="background-color: #f9fafb;"><th>Código</th><th>Nombre</th><th>Unidad</th><th>Mínimo</th><th>Stock</th><th style="text-align: center;">Acciones</th></tr></thead>
+                        <table style="width: 100%;">
+                            <thead>
+                                <tr style="background-color: #f9fafb;">
+                                    <th>Cód.</th><th>Nombre</th><th>Stock Actual</th><th style="text-align: center;">Acciones</th>
+                                </tr>
+                            </thead>
                             <tbody id="tabla-insumos-body"></tbody>
                         </table>
                     </div>
@@ -85,101 +142,152 @@
             </section>
 
             <!-- ==========================================
-                 MÓDULO MAESTRO DE COSTOS DE PLATILLOS
+                 2. PESTAÑA: DIRECTORIO DE PRECIOS
                  ========================================== -->
-            <section id="modulo-produccion" class="modulo activo">
-                <h2>Costeo de Platillos y Ficha Técnica</h2>
-
-                <!-- CREADOR DE PLATILLO (PUROS DATOS DUROS) -->
-                <div class="tarjeta" style="border-top: 5px solid var(--naranja);">
-                    <h3 id="titulo-form-platillo" style="margin-bottom: 15px; color: var(--naranja); font-size: 1.5rem;">Crea o Edita los Costos del Platillo</h3>
-                    
-                    <form id="form-platillo" style="margin-bottom: 20px;">
-                        <input type="hidden" id="platillo-id" value="">
-                        
-                        <div style="background-color: #f9fafb; padding: 15px; border-radius: 5px; border: 1px solid var(--borde); margin-bottom: 20px;">
-                            <h4 style="margin-bottom: 10px; color: var(--azul);">1. Datos del Platillo</h4>
-                            <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px;">
-                                <div style="flex: 1; min-width: 120px;"><label style="font-size: 0.8em; color: gray;">Código / ID:</label><input type="text" id="platillo-codigo" placeholder="Ej. HAM-001"></div>
-                                <div style="flex: 2; min-width: 200px;"><label style="font-size: 0.8em; color: gray;">Nombre del Platillo:</label><input type="text" id="platillo-nombre" placeholder="Ej. Hamburguesa Sencilla" required></div>
-                                <div style="flex: 1; min-width: 150px;"><label style="font-size: 0.8em; color: gray;">Categoría:</label><input type="text" id="platillo-categoria" placeholder="Ej. Plato Fuerte"></div>
-                            </div>
-                            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                                <div style="flex: 1; min-width: 100px;"><label style="font-size: 0.8em; color: gray;">Porciones resultantes:</label><input type="number" id="platillo-porciones" value="1" min="1" required></div>
-                                <div style="flex: 1; min-width: 100px;"><label style="font-size: 0.8em; color: gray;">Margen Error (%):</label><input type="number" id="platillo-margen" value="10" step="0.1"></div>
-                                <div style="flex: 1; min-width: 100px;"><label style="font-size: 0.8em; color: gray;">% Costo Meta:</label><input type="number" id="platillo-porcentaje" value="30" step="0.1"></div>
-                            </div>
-                            
-                            <div style="display: flex; gap: 10px; margin-top: 15px;">
-                                <button type="submit" id="btn-guardar-platillo" class="btn btn-primario" style="flex: 1;">💾 Guardar Datos del Platillo</button>
-                                <button type="button" id="btn-cancelar-platillo" class="btn btn-peligro oculto" onclick="cancelarEdicionPlatillo()">Cancelar</button>
-                            </div>
-                        </div>
-                    </form>
-
-                    <!-- CONSTRUCTOR DE INGREDIENTES CON BUSCADOR -->
-                    <div id="panel-armado-receta" style="display: none; padding-top: 15px; border-top: 2px dashed #ccc;">
-                        <h4 style="margin-bottom: 10px; color: var(--azul);">2. Agregar Ingredientes (Cálculo de Costo Exacto)</h4>
-                        
-                        <form id="form-receta" style="background-color: #fffaf0; padding: 15px; border-radius: 5px; border: 1px solid #fde68a;">
-                            <input type="hidden" id="receta-platillo-id" value="">
-
-                            <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px;">
-                                <div style="flex: 2; min-width: 250px;">
-                                    <label style="font-size: 0.8em; font-weight: bold;">Ingrediente del Inventario:</label>
-                                    <!-- NUEVO: BARRA DE BÚSQUEDA PARA LA LISTA DESPLEGABLE -->
-                                    <input type="text" id="buscador-insumo-receta" placeholder="🔍 Escribe para buscar rápido..." style="margin-bottom: 5px; padding: 8px; border: 1px solid var(--naranja); border-radius: 4px; width: 100%;">
-                                    <select id="select-insumo-receta" required></select>
-                                </div>
-                                <div style="flex: 1; min-width: 150px;">
-                                    <label style="font-size: 0.8em; color: gray;">Precio de compra actual:</label>
-                                    <div id="display-precio-insumo" style="padding: 10px; background: #e5e7eb; border-radius: 4px; font-weight: bold; color: var(--azul); margin-top: 5px;">Q0.00 / Unidad</div>
-                                </div>
-                            </div>
-
-                            <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 15px; align-items: flex-end;">
-                                <div style="flex: 1; min-width: 120px;">
-                                    <label style="font-size: 0.8em; font-weight: bold; color: var(--verde);">¿Cuánto lleva la receta?</label>
-                                    <input type="number" id="cantidad-receta" step="0.001" placeholder="Ej. 150" required>
-                                </div>
-                                <div style="flex: 1; min-width: 120px;">
-                                    <label style="font-size: 0.8em; font-weight: bold; color: var(--azul);">¿En qué se mide?</label>
-                                    <select id="receta-unidad-medida" required>
-                                        <option value="g">Gramos (g)</option>
-                                        <option value="ml">Mililitros (ml)</option>
-                                        <option value="lb">Libras (lb)</option>
-                                        <option value="oz">Onzas (oz)</option>
-                                        <option value="kg">Kilos (kg)</option>
-                                        <option value="Unidad">Pieza / Unidad</option>
-                                    </select>
-                                </div>
-                                <div style="flex: 1.5; min-width: 200px;">
-                                    <label style="font-size: 0.8em; font-weight: bold; color: var(--naranja);">Equivalencia de costo:</label>
-                                    <input type="number" id="receta-equivalencia" step="0.001" placeholder="Ej. ¿Cuántos gramos hay en tu unidad de compra?" required>
-                                    <small style="color: gray; font-size: 0.75em;" id="ayuda-equivalencia">Ej. Si compras 1 Galón, ingresa 3785 (porque hay 3785ml en 1 galón).</small>
-                                </div>
-                            </div>
-
-                            <button type="submit" class="btn btn-exito" style="width: 100%;">+ Añadir Ingrediente</button>
-                        </form>
-
-                        <h4 style="margin-top: 20px; margin-bottom: 10px;">Costos Activos en este Platillo</h4>
-                        <div class="tabla-contenedor">
-                            <table>
-                                <thead><tr style="background-color: #f3f4f6;"><th>Ingrediente</th><th>Cantidad de Receta</th><th>Unidad</th><th>Costo de lo usado</th><th>Quitar</th></tr></thead>
-                                <tbody id="tabla-receta-viva"></tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-
+            <section id="modulo-lista-precios" class="modulo">
+                <h2>Directorio de Precios y Proveedores</h2>
                 <div class="tarjeta">
-                    <h3>Platillos Guardados (Fichas Técnicas)</h3>
-                    <div id="contenedor-catalogo-recetas" style="margin-top: 15px;"></div>
+                    <p style="color: gray; margin-bottom: 15px;">Aquí puedes ver de un vistazo cómo compras cada producto, a qué precio y quién te lo vende.</p>
+                    <input type="text" id="buscador-directorio" placeholder="🔍 Filtrar producto..." style="width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid var(--verde); border-radius: 4px;">
+                    
+                    <div class="tabla-contenedor">
+                        <table style="width: 100%;">
+                            <thead>
+                                <tr style="background-color: #10b981; color: white;">
+                                    <th>Producto</th>
+                                    <th>Proveedor Asignado</th>
+                                    <th style="text-align:center;">Presentación de Compra</th>
+                                    <th style="text-align:right;">Precio de Compra</th>
+                                    <th style="text-align:right;">Costo Base (Por 1 Unidad)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabla-directorio-precios"></tbody>
+                        </table>
+                    </div>
                 </div>
             </section>
 
-            <!-- LOS DEMÁS MÓDULOS SE MANTIENEN IGUAL... -->
+            <!-- ==========================================
+                 3. MÓDULO DE COSTOS Y SUB-RECETAS
+                 ========================================== -->
+            <section id="modulo-produccion" class="modulo">
+                <h2>Creador Maestro de Recetas y Costos</h2>
+
+                <div class="tarjeta" style="border-top: 5px solid var(--naranja);">
+                    <h3 id="titulo-form-platillo" style="margin-bottom: 15px; color: var(--naranja); font-size: 1.5rem;">Armar Nueva Receta</h3>
+                    
+                    <form id="form-maestro-receta" style="margin-bottom: 0;">
+                        <input type="hidden" id="platillo-id" value="">
+                        
+                        <!-- PERFIL DEL PLATILLO -->
+                        <div style="background-color: #f9fafb; padding: 15px; border-radius: 5px; border: 1px solid var(--borde); margin-bottom: 15px;">
+                            <h4 style="margin-bottom: 10px; color: var(--azul);">1. Datos del Platillo</h4>
+                            <div class="grid-3" style="margin-bottom: 10px;">
+                                <div style="grid-column: span 2;"><label style="font-size: 0.85em; font-weight: bold;">Nombre del Platillo/Receta:</label><input type="text" id="platillo-nombre" placeholder="Ej. Hamburguesa Doble o Salsa Pomodoro" required style="border: 2px solid #ccc;"></div>
+                                <div><label style="font-size: 0.85em; font-weight: bold;">Categoría:</label><input type="text" id="platillo-categoria" placeholder="Ej. Plato Fuerte o Salsas"></div>
+                            </div>
+                            <div class="grid-3">
+                                <div><label style="font-size: 0.85em; font-weight: bold; color: var(--naranja);">Rendimiento (Porciones):</label><input type="number" id="platillo-porciones" value="1" min="0.01" step="0.01" required style="border: 2px solid var(--naranja);"></div>
+                                <div><label style="font-size: 0.85em; font-weight: bold;">Margen de Error (%):</label><input type="number" id="platillo-margen" value="10" step="0.1"></div>
+                                <div><label style="font-size: 0.85em; font-weight: bold;">Costo Meta Deseado (%):</label><input type="number" id="platillo-porcentaje" value="30" step="0.1"></div>
+                            </div>
+                            <!-- NUEVA FUNCIÓN: SUB-RECETAS -->
+                            <div style="margin-top: 15px; padding: 10px; background: #e0e7ff; border-radius: 5px; border: 1px solid #a5b4fc;">
+                                <label style="font-size: 0.9em; font-weight: bold; color: #4338ca; display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                                    <input type="checkbox" id="platillo-es-subreceta" style="width: 20px; height: 20px;"> 
+                                    ¿Es una Sub-Receta? (Si marcas esto, la receta se guardará en tu inventario automáticamente como ingrediente para usarla en otros platos).
+                                </label>
+                                <div id="opciones-subreceta" style="display: none; margin-top: 10px;">
+                                    <label style="font-size: 0.85em;">¿En qué unidad se mide esta sub-receta en el inventario? (Ej. Litros, Porción)</label>
+                                    <select id="platillo-unidad-subreceta" style="width: 50%;">
+                                        <option value="porcion">Porción</option>
+                                        <option value="l">Litros (l)</option>
+                                        <option value="kg">Kilos (kg)</option>
+                                        <option value="g">Gramos (g)</option>
+                                        <option value="ml">Mililitros (ml)</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- AGREGAR INGREDIENTES AL CARRITO -->
+                        <div style="background-color: #fffaf0; padding: 15px; border-radius: 8px; border: 1px solid #fde68a; margin-bottom: 15px;">
+                            <h4 style="margin-bottom: 15px; color: var(--texto-principal);">2. Agregar Ingredientes (Cálculo Inmediato)</h4>
+                            
+                            <div class="grid-3" style="margin-bottom: 10px; align-items: flex-end;">
+                                <div style="grid-column: span 2;">
+                                    <label style="font-size: 0.8em; font-weight: bold;">Selecciona del Inventario:</label>
+                                    <input type="text" id="buscador-insumo-receta" placeholder="Buscar ingrediente o sub-receta..." style="margin-bottom: 5px; padding: 6px; font-size: 0.9em; width: 100%;">
+                                    <select id="select-insumo-receta"></select>
+                                </div>
+                                <div style="background: #e0f2fe; padding: 10px; border-radius: 5px; text-align: center; border: 1px solid #7dd3fc;">
+                                    <label style="font-size: 0.8em; color: #0369a1; font-weight: bold;">Información de Compra:</label>
+                                    <div id="display-precio-insumo" style="font-size: 1em; font-weight: bold; color: var(--azul); margin-top: 5px;">Q0.00</div>
+                                </div>
+                            </div>
+
+                            <div class="grid-3" style="margin-bottom: 10px; align-items: flex-end;">
+                                <div style="background: #fef3c7; padding: 10px; border-radius: 5px; border: 1px solid #fcd34d; grid-column: span 2;">
+                                    <label style="font-size: 0.85em; font-weight: bold; color: #b45309;">¿Cuánto de esto lleva la receta?</label>
+                                    <div style="display: flex; gap: 10px; margin-top: 5px;">
+                                        <input type="number" id="receta-cantidad" step="0.001" placeholder="Ej. 160" style="width: 50%;">
+                                        <select id="receta-unidad" style="width: 50%;">
+                                            <option value="g">Gramos (g)</option>
+                                            <option value="oz">Onzas (oz)</option>
+                                            <option value="ml">Mililitros (ml)</option>
+                                            <option value="porcion">Porciones</option>
+                                            <option value="unidad">Unidades/Piezas</option>
+                                            <option value="lb">Libras (lb)</option>
+                                            <option value="kg">Kilos (kg)</option>
+                                            <option value="l">Litros (l)</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div>
+                                    <button type="button" id="btn-add-carrito" class="btn btn-exito" style="width: 100%; height: 50px; font-size: 1.1em; font-weight: bold;">+ Añadir Ingrediente</button>
+                                </div>
+                            </div>
+                            
+                            <div id="panel-matematica" style="font-size: 0.85em; color: #4b5563; padding: 10px; background: #fff; border: 1px dashed #d1d5db; border-radius: 5px; margin-bottom: 15px;">
+                                Llena la cantidad para ver el cálculo de costo de este ingrediente...
+                            </div>
+
+                            <!-- CARRITO TEMPORAL -->
+                            <div class="tabla-contenedor">
+                                <table style="width: 100%; font-size: 0.9em;">
+                                    <thead>
+                                        <tr style="background-color: #1e3a8a; color: white;">
+                                            <th>Ingrediente</th>
+                                            <th style="text-align:center;">Uso en Receta</th>
+                                            <th style="text-align:right;">Costo M.P.</th>
+                                            <th style="text-align:center;">Quitar</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="tabla-carrito-receta">
+                                        <tr><td colspan="4" style="text-align:center; color:gray;">No has agregado ingredientes.</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- GUARDAR DEFINITIVAMENTE -->
+                        <div style="display: flex; gap: 10px;">
+                            <button type="submit" id="btn-guardar-maestro" class="btn btn-primario" style="flex: 2; height: 50px; font-size: 1.2em;">💾 GUARDAR RECETA COMPLETA</button>
+                            <button type="button" id="btn-cancelar-maestro" class="btn btn-peligro oculto" onclick="cancelarEdicionMaestro()" style="flex: 1;">Cancelar</button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- CATÁLOGO DE PLATILLOS GUARDADOS -->
+                <div class="tarjeta">
+                    <h3 style="margin-bottom: 15px;">Catálogo General de Fichas Técnicas</h3>
+                    <div class="grid-3" id="contenedor-tarjetas-platillos"></div>
+                </div>
+            </section>
+
+            <!-- ==========================================
+                 4. MÓDULO DE PROVEEDORES (RESTAURADO)
+                 ========================================== -->
             <section id="modulo-proveedores" class="modulo">
                 <h2>Gestión de Proveedores y Pedidos</h2>
                 <div class="contenedor-flex">
@@ -189,8 +297,8 @@
                             <input type="hidden" id="prov-id" value="">
                             <input type="text" id="prov-nombre" placeholder="Nombre Empresa" required>
                             <input type="text" id="prov-telefono" placeholder="Teléfono" required>
-                            <div style="display: flex; gap: 10px;">
-                                <button type="submit" id="btn-guardar-prov" class="btn btn-primario" style="flex: 1;">Guardar</button>
+                            <div style="display: flex; gap: 10px; margin-top: 10px;">
+                                <button type="submit" id="btn-guardar-prov" class="btn btn-primario" style="flex: 1;">Guardar Proveedor</button>
                                 <button type="button" id="btn-cancelar-prov" class="btn btn-peligro oculto" onclick="cancelarEdicionProv()">Cancelar</button>
                             </div>
                         </form>
@@ -205,47 +313,59 @@
                             <div id="contenedor-checklist" class="checklist-contenedor">
                                 <p style="color: gray; font-size: 0.9em; text-align: center; margin-top: 10px;">Selecciona un proveedor primero.</p>
                             </div>
-                            <button type="submit" class="btn btn-exito">Vincular Productos Seleccionados</button>
+                            <button type="submit" class="btn btn-exito" style="margin-top: 10px;">Vincular Productos Seleccionados</button>
                         </form>
                     </div>
                 </div>
                 
                 <div class="tarjeta">
-                    <h3>Catálogo por Proveedor (Editar Precios)</h3>
+                    <h3>Catálogo por Proveedor</h3>
                     <div id="contenedor-catalogo-proveedores"></div>
                 </div>
 
                 <div class="tarjeta" style="border-top: 4px solid var(--naranja);">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
                         <h3>Armar Pedido a Proveedor</h3>
-                        <button class="btn btn-editar" onclick="imprimirReporteAutomatico()">Imprimir Faltantes</button>
+                        <button class="btn btn-editar" onclick="window.imprimirReporteAutomatico()">Imprimir Faltantes</button>
                     </div>
                     <select id="select-prov-pedido" style="margin-bottom: 10px;"><option value="">Seleccione a quién le va a pedir...</option></select>
                     <input type="text" id="buscador-pedido" placeholder="Filtrar por código o nombre..." style="margin-bottom: 15px;">
                     <div id="lista-pedido-dinamica" style="margin-bottom: 20px;"></div>
                     <div id="gran-total-pedido" class="gran-total">Total: Q0.00</div>
-                    <button id="btn-imprimir-pedido" class="btn btn-primario" style="width: 100%; display: none; margin-top: 15px;" onclick="imprimirPedidoManual()">Imprimir Orden de Compra</button>
+                    <button id="btn-imprimir-pedido" class="btn btn-primario" style="width: 100%; display: none; margin-top: 15px;" onclick="window.imprimirPedidoManual()">Imprimir Orden de Compra</button>
                 </div>
             </section>
 
+            <!-- ==========================================
+                 5. MÓDULO DE BODEGA
+                 ========================================== -->
             <section id="modulo-bodega" class="modulo">
                 <h2>Operaciones de Bodega Automáticas</h2>
+                <div class="tarjeta" style="border-top: 4px solid var(--rojo-texto); background-color: #fff5f5; margin-bottom: 20px;">
+                    <h3 style="color: var(--rojo-texto); margin-bottom: 15px;">🍔 Procesar Ventas / Producción (Descuento Automático)</h3>
+                    <p style="font-size: 0.85em; color: gray; margin-bottom: 15px;">Selecciona el platillo vendido y el sistema descontará inteligentemente cada insumo de bodega.</p>
+                    <form id="form-produccion" class="formulario-horizontal">
+                        <select id="select-platillo-produccion" required style="margin-bottom: 10px;"><option value="">¿Qué platillo se preparó?</option></select>
+                        <input type="number" id="cantidad-produccion" placeholder="Cantidad de platos/porciones vendidas" required style="margin-bottom: 15px;">
+                        <button type="submit" class="btn btn-peligro" style="width: 100%;">Ejecutar Venta y Descontar Bodega</button>
+                    </form>
+                </div>
+
                 <div class="contenedor-flex">
                     <div class="tarjeta" style="border-top: 4px solid var(--verde);">
                         <h3 style="margin-bottom: 15px;">Recepción (Ingreso en Lote)</h3>
                         <select id="select-prov-entrada" style="margin-bottom: 10px;"><option value="">Seleccione proveedor...</option></select>
                         <input type="text" id="buscador-entrada" placeholder="Filtrar producto a ingresar..." style="margin-bottom: 15px;">
                         <div id="lista-entrada-dinamica"></div>
-                        <div id="gran-total-entrada" class="gran-total" style="margin-bottom: 15px;">Total: Q0.00</div>
-                        <button id="btn-procesar-entrada-lote" class="btn btn-exito" style="width: 100%; display: none;" onclick="procesarLote('entrada')">Guardar Todo el Ingreso</button>
+                        <button id="btn-procesar-entrada-lote" class="btn btn-exito" style="width: 100%; display: none; margin-top:15px;" onclick="procesarLote('entrada')">Guardar Ingreso de Bodega</button>
                     </div>
 
                     <div class="tarjeta" style="border-top: 4px solid var(--rojo-texto);">
-                        <h3 style="margin-bottom: 15px;">Despacho / Merma (Salida en Lote)</h3>
+                        <h3 style="margin-bottom: 15px;">Despacho / Merma (Salida Manual)</h3>
                         <select id="select-prov-salida" style="margin-bottom: 10px;"><option value="todos">Mostrar TODOS los productos</option></select>
                         <input type="text" id="buscador-salida" placeholder="Filtrar producto a descontar..." style="margin-bottom: 15px;">
                         <div id="lista-salida-dinamica"></div>
-                        <button id="btn-procesar-salida-lote" class="btn btn-peligro" style="width: 100%; margin-top: 15px; display: none;" onclick="procesarLote('salida')">Guardar Todo el Despacho</button>
+                        <button id="btn-procesar-salida-lote" class="btn btn-peligro" style="width: 100%; margin-top: 15px; display: none;" onclick="procesarLote('salida')">Guardar Merma / Salida</button>
                     </div>
                 </div>
             </section>
